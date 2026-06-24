@@ -1,0 +1,1030 @@
+```html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <!-- PWA化のための設定 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="無音カメラ">
+  
+  <!-- 専用ホーム画面アイコンの設定（iPad用） -->
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="icon-167.png"> <!-- iPad Pro用 -->
+  
+  <!-- PWA マニフェストの読み込み -->
+  <link rel="manifest" href="manifest.json">
+  
+  <title>Pixel Camera Ultimate - Super Fast Edition</title>
+  
+  <!-- Google Fonts & Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            m3: {
+              primary: '#A8C7FA',
+              onPrimary: '#062E6F',
+              primaryContainer: '#004A77',
+              onPrimaryContainer: '#C2E7FF',
+              secondaryContainer: '#334455',
+              onSecondaryContainer: '#E2E2E9',
+              background: '#0B0D11',
+              surface: '#13151A',
+              surfaceVariant: '#22262F',
+              onSurface: '#E2E2E9',
+              onSurfaceVariant: '#C3C6CF',
+              outline: '#8D9199',
+              error: '#FFB4AB',
+              onError: '#690005'
+            }
+          },
+          borderRadius: {
+            'm3-full': '28px',
+            'm3-btn': '20px',
+            'm3-pill': '100px',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      font-size: 24px;
+      user-select: none;
+    }
+    .material-symbols-outlined.filled {
+      font-variation-settings: 'FILL' 1;
+    }
+
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .mirror { transform: scaleX(-1); }
+    .btn-active:active { transform: scale(0.92); }
+
+    @keyframes m3-organic {
+      0%, 100% { border-radius: 28px 16px 24px 20px; }
+      33% { border-radius: 18px 28px 16px 24px; }
+      66% { border-radius: 24px 18px 28px 16px; }
+    }
+    .m3-expressive-card {
+      animation: m3-organic 8s ease-in-out infinite;
+    }
+    
+    .ratio-4-3 {
+      aspect-ratio: 4 / 3 !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+    }
+    .ratio-16-9 {
+      aspect-ratio: 16 / 9 !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+    }
+    
+    .vertical-slider-container {
+      position: relative;
+      height: 180px;
+      width: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    input[type="range"].vertical-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 180px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      transform: rotate(-90deg);
+      transform-origin: center;
+      position: absolute;
+      top: 78px;
+      cursor: pointer;
+      margin: 0;
+      outline: none;
+    }
+
+    input[type="range"].vertical-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #A8C7FA;
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+      transition: transform 0.1s, background-color 0.1s;
+    }
+    input[type="range"].vertical-slider::-webkit-slider-thumb:active {
+      transform: scale(1.2);
+      background: #FFFFFF;
+    }
+
+    .m3-switch {
+      position: relative;
+      width: 52px;
+      height: 32px;
+      background-color: rgba(255, 255, 255, 0.12);
+      border-radius: 100px;
+      transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s;
+      cursor: pointer;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+    .m3-switch-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      border-radius: 100px;
+      background-color: #C3C6CF;
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), background-color 0.2s;
+    }
+    .m3-switch-active {
+      background-color: #004A77 !important;
+      border-color: #A8C7FA !important;
+    }
+    .m3-switch-active .m3-switch-thumb {
+      transform: translateX(20px);
+      background-color: #A8C7FA !important;
+    }
+    .m3-switch-active .switch-icon {
+      color: #062E6F !important;
+    }
+
+    @keyframes scan-laser {
+      0% { top: 0%; }
+      50% { top: 100%; }
+      100% { top: 0%; }
+    }
+    .scan-laser-line { animation: scan-laser 2s linear infinite; }
+  </style>
+</head>
+<body class="bg-black text-white font-sans h-screen w-screen overflow-hidden relative select-none">
+
+  <!-- カメラ権限なし時のプレースホルダー -->
+  <div id="camera-placeholder" class="fixed inset-0 bg-m3-surface flex flex-col items-center justify-center p-6 text-center z-50 transition-opacity duration-300">
+    <div class="w-20 h-20 bg-m3-surfaceVariant rounded-full flex items-center justify-center mb-6 text-m3-primary m3-expressive-card">
+      <span class="material-symbols-outlined !text-3xl">no_photography</span>
+    </div>
+    <h3 class="text-2xl font-bold mb-2 font-display">カメラへのアクセス</h3>
+    <button id="btn-request-auth" class="px-6 py-3 bg-m3-primary text-m3-onPrimary rounded-m3-pill font-bold btn-active">
+      カメラの使用を許可
+    </button>
+  </div>
+
+  <!-- カメラビデオ表示エリア -->
+  <div class="absolute inset-0 w-full h-full bg-black z-0 flex items-center justify-center overflow-hidden">
+    <div id="video-container" class="relative ratio-4-3 w-full h-full transition-all duration-300 ease-out flex items-center justify-center overflow-hidden">
+      <video id="camera-video" class="w-full h-full object-cover transition-transform duration-100" autoplay playsinline></video>
+      <div id="grid-overlay" class="absolute inset-0 pointer-events-none hidden">
+        <div class="absolute left-0 right-0 top-1/3 h-[0.5px] bg-white/25"></div>
+        <div class="absolute left-0 right-0 top-2/3 h-[0.5px] bg-white/25"></div>
+        <div class="absolute top-0 bottom-0 left-1/3 w-[0.5px] bg-white/25"></div>
+        <div class="absolute top-0 bottom-0 left-2/3 w-[0.5px] bg-white/25"></div>
+      </div>
+      <div id="scan-effect" class="absolute inset-0 pointer-events-none hidden bg-cyan-500/5">
+        <div class="absolute left-0 right-0 h-[2px] bg-cyan-400 scan-laser-line shadow-[0_0_10px_#22d3ee]"></div>
+      </div>
+      <div id="leveler" class="absolute inset-0 flex items-center justify-center pointer-events-none hidden">
+        <div class="relative w-40 h-40 flex items-center justify-center">
+          <div class="w-2 h-2 rounded-full bg-m3-primary z-10"></div>
+          <div id="leveler-bar" class="absolute w-28 h-[1.5px] bg-white transition-transform duration-75" style="transform: rotate(0deg);"></div>
+          <div class="absolute w-32 h-32 border border-white/15 rounded-full"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 撮影時のホワイトフラッシュ -->
+  <div id="flash-overlay" class="absolute inset-0 bg-white opacity-0 pointer-events-none transition-opacity duration-75 z-30"></div>
+
+  <!-- 左側クイック設定コントロール -->
+  <div class="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-3.5 z-20">
+    <button id="btn-settings-toggle" class="w-12 h-12 rounded-m3-btn bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 btn-active shadow-lg">
+      <span class="material-symbols-outlined">tune</span>
+    </button>
+    <button id="btn-aspect-toggle" class="w-12 h-12 rounded-m3-btn bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 btn-active shadow-lg">
+      <span id="aspect-text-icon" class="text-xs font-bold font-mono text-m3-primary">4:3</span>
+    </button>
+    <button id="btn-grid-toggle" class="w-12 h-12 rounded-m3-btn bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 btn-active shadow-lg">
+      <span id="grid-icon" class="material-symbols-outlined">grid_off</span>
+    </button>
+    <button id="btn-timer-toggle" class="w-12 h-12 rounded-m3-btn bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 btn-active shadow-lg relative">
+      <span id="timer-icon" class="material-symbols-outlined">timer_off</span>
+      <span id="timer-badge" class="absolute -bottom-1 -right-1 bg-m3-primary text-m3-onPrimary text-[8px] font-bold px-1.5 rounded-full hidden">3s</span>
+    </button>
+    <button id="btn-livephoto-toggle" class="w-12 h-12 rounded-m3-btn bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 btn-active shadow-lg relative">
+      <span id="livephoto-icon" class="material-symbols-outlined">motion_photos_off</span>
+      <span id="livephoto-badge" class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full hidden"></span>
+    </button>
+    <button id="btn-level-toggle" class="w-12 h-12 rounded-m3-btn bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/10 btn-active shadow-lg">
+      <span id="level-icon" class="material-symbols-outlined">filter_tilt_shift</span>
+    </button>
+  </div>
+
+  <!-- 【M3 Expressive 縦型スライダー】 -->
+  <div class="absolute left-20 top-1/2 -translate-y-1/2 flex flex-col items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-6 rounded-m3-full border border-white/10 shadow-lg z-20">
+    <button id="btn-zoom-plus" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm btn-active">+</button>
+    <div class="vertical-slider-container">
+      <input type="range" id="zoom-slider" min="1.0" max="8.0" step="0.1" value="1.0" class="vertical-slider">
+    </div>
+    <button id="btn-zoom-minus" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm btn-active">-</button>
+    <span id="zoom-text" class="text-xs font-bold text-m3-primary font-mono mt-1">1.0x</span>
+  </div>
+
+  <!-- 【右端操作パネル】 -->
+  <div class="absolute right-6 top-1/2 -translate-y-1/2 flex flex-col items-center gap-6 z-20 bg-transparent">
+    <div class="flex flex-col bg-black/50 backdrop-blur-md p-1 rounded-2xl border border-white/10 text-xs font-semibold shadow-2xl">
+      <button id="tab-video" class="mode-item text-m3-onSurfaceVariant/70 px-4 py-2.5 rounded-xl transition-all">動画</button>
+      <button id="tab-photo" class="mode-item text-white bg-white/10 px-4 py-2.5 rounded-xl font-bold transition-all">写真</button>
+      <button id="tab-scan" class="mode-item text-m3-onSurfaceVariant/70 px-4 py-2.5 rounded-xl transition-all">スキャン</button>
+    </div>
+    <button id="btn-switch" class="w-14 h-14 bg-black/50 backdrop-blur-md border border-white/10 rounded-m3-btn flex items-center justify-center text-white btn-active shadow-xl">
+      <span class="material-symbols-outlined !text-2xl">flip_camera_ios</span>
+    </button>
+    <div class="relative flex items-center justify-center">
+      <div class="w-22 h-22 rounded-full border-4 border-white/30 p-1 flex items-center justify-center">
+        <button id="btn-shutter" class="w-16 h-16 bg-white rounded-full flex items-center justify-center btn-active shadow-2xl transition-all duration-200">
+          <div id="shutter-inner" class="w-full h-full rounded-full bg-white transition-all duration-200"></div>
+        </button>
+      </div>
+    </div>
+    <button id="btn-gallery-thumb" class="w-14 h-14 bg-black/50 backdrop-blur-md rounded-full overflow-hidden border border-white/20 flex items-center justify-center btn-active shadow-xl relative group">
+      <div id="thumb-placeholder" class="absolute inset-0 flex items-center justify-center text-white/40">
+        <span class="material-symbols-outlined !text-xl">photo_library</span>
+      </div>
+      <img id="thumb-img" class="absolute inset-0 w-full h-full object-cover hidden" alt="最新">
+      <div id="thumb-live-indicator" class="absolute top-0.5 left-0.5 w-3.5 h-3.5 bg-yellow-400 rounded-full border border-black hidden flex items-center justify-center text-[7px] font-bold text-black font-display">L</div>
+      <div id="thumb-video-badge" class="absolute bottom-0.5 right-0.5 bg-red-600 rounded px-0.5 text-[7px] font-bold text-white hidden">MOV</div>
+    </button>
+  </div>
+
+  <!-- タイマーカウントダウン -->
+  <div id="countdown-screen" class="absolute inset-0 bg-black/20 flex items-center justify-center z-30 pointer-events-none hidden">
+    <div id="countdown-number" class="text-8xl font-bold text-white drop-shadow-md font-display transition-all duration-100 scale-95">3</div>
+  </div>
+
+  <!-- 録画ステータス -->
+  <div id="recording-bar" class="absolute top-6 left-1/2 -translate-x-1/2 bg-red-600/90 backdrop-blur-md px-4 py-1.5 rounded-m3-pill flex items-center gap-2 text-xs font-bold shadow-xl z-20 hidden">
+    <span class="w-2.5 h-2.5 rounded-full bg-white animate-pulse"></span>
+    <span id="recording-timer" class="font-mono">00:00</span>
+  </div>
+
+  <!-- 【M3 Expressive ギャラリーモーダル】 -->
+  <div id="gallery-modal" class="fixed inset-0 bg-m3-background/95 backdrop-blur-2xl z-40 transform translate-y-full transition-transform duration-300 ease-out flex flex-col">
+    <div class="p-5 border-b border-white/5 flex items-center justify-between bg-m3-surfaceVariant/20">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-m3-primary filled">photo_library</span>
+        <h2 class="text-lg font-bold font-display">ギャラリーライブラリ</h2>
+        <span id="gallery-count" class="bg-m3-primaryContainer text-m3-onPrimaryContainer px-3 py-1 rounded-full text-xs font-mono font-bold">0</span>
+      </div>
+      <button id="btn-close-gallery" class="w-11 h-11 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center btn-active">
+        <span class="material-symbols-outlined">expand_more</span>
+      </button>
+    </div>
+    
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+      <div class="flex-1 overflow-y-auto p-4 grid grid-cols-3 gap-3 no-scrollbar bg-black/20">
+        <div id="gallery-empty" class="col-span-full py-20 text-center text-m3-outline text-sm font-medium">まだ撮影された写真やビデオがないよ</div>
+        <div id="gallery-grid-container" class="col-span-full grid grid-cols-3 gap-3"></div>
+      </div>
+      
+      <div class="w-full md:w-[380px] bg-m3-surface p-6 flex flex-col justify-between border-t md:border-t-0 md:border-l border-white/10 shadow-2xl">
+        <div class="flex-1 flex flex-col justify-center items-center gap-4 relative">
+          <div id="live-playback-banner" class="absolute top-2 left-2 z-10 bg-yellow-400 text-black px-3 py-1 rounded-full text-[10px] font-bold hidden shadow-md">LIVE PHOTO (長押しで動く)</div>
+          <div id="preview-box" class="w-full aspect-square bg-m3-surfaceVariant rounded-m3-full overflow-hidden flex items-center justify-center border border-white/5 relative shadow-inner">
+            <img id="detail-img" class="max-w-full max-h-full object-contain hidden" alt="詳細写真">
+            <video id="detail-video" class="max-w-full max-h-full object-contain hidden" controls loop playsinline></video>
+            <div id="detail-placeholder" class="text-m3-outline text-xs font-medium">サムネイルを選択してね</div>
+          </div>
+          <div id="detail-info" class="text-center text-xs hidden">
+            <p id="detail-time" class="text-m3-outline font-mono font-semibold"></p>
+            <p id="detail-type" class="text-m3-primary font-bold mt-1 tracking-wider"></p>
+          </div>
+        </div>
+        
+        <div class="flex flex-col gap-3 mt-6">
+          <button id="btn-save" disabled class="w-full py-4 bg-m3-primary text-m3-onPrimary disabled:opacity-30 rounded-m3-pill font-bold text-sm flex items-center justify-center gap-2 btn-active shadow-lg">
+            <span class="material-symbols-outlined !text-xl">download</span>デバイスに保存する
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="btn-delete" disabled class="py-3 bg-m3-surfaceVariant hover:bg-m3-error hover:text-m3-onError text-red-400 rounded-m3-pill font-bold text-xs btn-active transition-colors">削除</button>
+            <button id="btn-clear-all" class="py-3 bg-m3-surfaceVariant text-m3-outline rounded-m3-pill font-bold text-xs btn-active">ライブラリ消去</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 【M3 Expressive 設定モーダル】 -->
+  <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-m3-surface border border-white/10 w-full max-w-sm rounded-m3-full p-6 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b border-white/5 pb-3">
+        <h3 class="text-lg font-bold flex items-center gap-1.5 text-m3-primary font-display">
+          <span class="material-symbols-outlined">tune</span>カメラの設定
+        </h3>
+        <button id="btn-close-settings" class="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center btn-active">
+          <span class="material-symbols-outlined !text-lg">close</span>
+        </button>
+      </div>
+      
+      <div class="flex flex-col gap-3 text-xs max-h-[50vh] overflow-y-auto no-scrollbar">
+        <div class="bg-m3-surfaceVariant/40 p-4 rounded-m3-btn flex justify-between items-center">
+          <div>
+            <p class="font-bold text-sm text-m3-onSurface">アスペクト比 16:9</p>
+            <p class="text-[10px] text-m3-outline">オフで標準 of 4:3比率</p>
+          </div>
+          <div id="switch-aspect" class="m3-switch">
+            <div class="m3-switch-thumb flex items-center justify-center">
+              <span class="material-symbols-outlined !text-[14px] !font-bold switch-icon">close</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-m3-surfaceVariant/40 p-4 rounded-m3-btn flex justify-between items-center">
+          <div>
+            <p class="font-bold text-sm text-m3-onSurface">4K 超高画質撮影</p>
+            <p class="text-[10px] text-m3-outline">オフで標準のFHD画質</p>
+          </div>
+          <div id="switch-quality" class="m3-switch">
+            <div class="m3-switch-thumb flex items-center justify-center">
+              <span class="material-symbols-outlined !text-[14px] !font-bold switch-icon">close</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-m3-surfaceVariant/40 p-4 rounded-m3-btn flex justify-between items-center">
+          <div>
+            <p class="font-bold text-sm text-m3-onSurface">構図補助グリッド</p>
+            <p class="text-[10px] text-m3-outline">オフでグリッド線を非表示</p>
+          </div>
+          <div id="switch-grid" class="m3-switch">
+            <div class="m3-switch-thumb flex items-center justify-center">
+              <span class="material-symbols-outlined !text-[14px] !font-bold switch-icon">close</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-m3-surfaceVariant/40 p-4 rounded-m3-btn flex justify-between items-center">
+          <div>
+            <p class="font-bold text-sm text-m3-onSurface">Live Photo 機能</p>
+            <p class="text-[10px] text-m3-outline">シャッターの前後を短い動画で保存</p>
+          </div>
+          <div id="switch-live" class="m3-switch">
+            <div class="m3-switch-thumb flex items-center justify-center">
+              <span class="material-symbols-outlined !text-[14px] !font-bold switch-icon">close</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-m3-surfaceVariant/40 p-4 rounded-m3-btn flex justify-between items-center">
+          <div>
+            <p class="font-bold text-sm text-m3-onSurface">自動並行水準器</p>
+            <p class="text-[10px] text-m3-outline">撮影画面の中央に角度バーを表示</p>
+          </div>
+          <div id="switch-level" class="m3-switch">
+            <div class="m3-switch-thumb flex items-center justify-center">
+              <span class="material-symbols-outlined !text-[14px] !font-bold switch-icon">close</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 bg-white text-black px-5 py-3 rounded-m3-full shadow-xl flex items-center gap-1.5 transform -translate-y-20 opacity-0 transition-all duration-200 z-50 pointer-events-none text-xs font-bold">
+    <span id="toast-icon" class="material-symbols-outlined !text-lg">info</span>
+    <span id="toast-text">メッセージ</span>
+  </div>
+
+  <script>
+    // サービスワーカーの登録 (PWAの起動に必須)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('ServiceWorker registered', reg))
+          .catch(err => console.error('ServiceWorker registration failed', err));
+      });
+    }
+
+    let stream = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let recordingTimeSec = 0;
+    let recordingInterval = null;
+
+    let activeFacingMode = 'environment';
+    let activeMode = 'photo'; 
+    let currentAspectRatio = '4-3'; 
+    let selectedQuality = 'FHD'; 
+    let isGridOn = false;
+    let activeTimer = 0;
+    let isLevelerOn = false;
+    let isLiveOn = false;
+
+    let zoomLevel = 1.0;
+    const maxZoom = 8.0;
+    let galleryItems = [];
+    let selectedItemIndex = -1;
+
+    const sharedCanvas = document.createElement('canvas');
+    let lastCaptureTime = 0;
+    let burstDetectionThreshold = 800;
+    let batchRenderTimeout = null;
+    let pendingGalleryItems = [];
+
+    // DOM
+    const video = document.getElementById('camera-video');
+    const videoContainer = document.getElementById('video-container');
+    const placeholder = document.getElementById('camera-placeholder');
+    const btnRequestAuth = document.getElementById('btn-request-auth');
+    const flashOverlay = document.getElementById('flash-overlay');
+
+    const btnSettingsToggle = document.getElementById('btn-settings-toggle');
+    const btnAspectToggle = document.getElementById('btn-aspect-toggle');
+    const btnGridToggle = document.getElementById('btn-grid-toggle');
+    const btnTimerToggle = document.getElementById('btn-timer-toggle');
+    const btnLivePhotoToggle = document.getElementById('btn-livephoto-toggle');
+    const btnLevelToggle = document.getElementById('btn-level-toggle');
+    const gridOverlay = document.getElementById('grid-overlay');
+    const scanEffect = document.getElementById('scan-effect');
+    const leveler = document.getElementById('leveler');
+    const levelerBar = document.getElementById('leveler-bar');
+
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomText = document.getElementById('zoom-text');
+    const btnZoomPlus = document.getElementById('btn-zoom-plus');
+    const btnZoomMinus = document.getElementById('btn-zoom-minus');
+
+    const btnShutter = document.getElementById('btn-shutter');
+    const shutterInner = document.getElementById('shutter-inner');
+    const btnSwitch = document.getElementById('btn-switch');
+    const btnGalleryThumb = document.getElementById('btn-gallery-thumb');
+    const thumbImg = document.getElementById('thumb-img');
+    const thumbPlaceholder = document.getElementById('thumb-placeholder');
+    const thumbLiveIndicator = document.getElementById('thumb-live-indicator');
+    const thumbVideoBadge = document.getElementById('thumb-video-badge');
+
+    const tabVideo = document.getElementById('tab-video');
+    const tabPhoto = document.getElementById('tab-photo');
+    const tabScan = document.getElementById('tab-scan');
+
+    const settingsModal = document.getElementById('settings-modal');
+    const btnCloseSettings = document.getElementById('btn-close-settings');
+    const toast = document.getElementById('toast');
+    const toastIcon = document.getElementById('toast-icon');
+    const toastText = document.getElementById('toast-text');
+
+    const switchAspect = document.getElementById('switch-aspect');
+    const switchQuality = document.getElementById('switch-quality');
+    const switchGrid = document.getElementById('switch-grid');
+    const switchLive = document.getElementById('switch-live');
+    const switchLevel = document.getElementById('switch-level');
+
+    const galleryModal = document.getElementById('gallery-modal');
+    const btnCloseGallery = document.getElementById('btn-close-gallery');
+    const galleryEmpty = document.getElementById('gallery-empty');
+    const galleryGridContainer = document.getElementById('gallery-grid-container');
+    const galleryCount = document.getElementById('gallery-count');
+    const detailImg = document.getElementById('detail-img');
+    const detailVideo = document.getElementById('detail-video');
+    const detailPlaceholder = document.getElementById('detail-placeholder');
+    const detailInfo = document.getElementById('detail-info');
+    const detailTime = document.getElementById('detail-time');
+    const detailType = document.getElementById('detail-type');
+    const btnSave = document.getElementById('btn-save');
+    const btnDelete = document.getElementById('btn-delete');
+    const btnClearAll = document.getElementById('btn-clear-all');
+    const livePlaybackBanner = document.getElementById('live-playback-banner');
+
+    const countdownScreen = document.getElementById('countdown-screen');
+    const countdownNumber = document.getElementById('countdown-number');
+    const recordingBar = document.getElementById('recording-bar');
+    const recordingTimer = document.getElementById('recording-timer');
+
+    function showToast(message, iconName = 'info') {
+      toastText.textContent = message;
+      toastIcon.textContent = iconName;
+      toast.classList.remove('-translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('-translate-y-20', 'opacity-0');
+      }, 2000);
+    }
+
+    function getIdealResolution() {
+      return (selectedQuality === '4K') ? { width: 3840, height: 2160 } : { width: 1920, height: 1080 };
+    }
+
+    async function initCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+      const res = getIdealResolution();
+      const constraints = {
+        video: { facingMode: activeFacingMode, width: { ideal: res.width }, height: { ideal: res.height } },
+        audio: true
+      };
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        if (activeFacingMode === 'user') video.classList.add('mirror');
+        else video.classList.remove('mirror');
+        placeholder.classList.add('opacity-0');
+        setTimeout(() => placeholder.classList.add('hidden'), 300);
+        zoomLevel = 1.0;
+        zoomSlider.value = 1.0;
+        updateTransform();
+      } catch (err) {
+        placeholder.classList.remove('hidden', 'opacity-0');
+        showToast("カメラを起動できなかったよ", "warning");
+      }
+    }
+
+    function updateTransform() {
+      let scaleX = (activeFacingMode === 'user') ? -zoomLevel : zoomLevel;
+      video.style.transform = `scale(${scaleX}, ${zoomLevel})`;
+      zoomText.textContent = `${zoomLevel.toFixed(1)}x`;
+      zoomSlider.value = zoomLevel;
+    }
+
+    zoomSlider.addEventListener('input', (e) => { zoomLevel = parseFloat(e.target.value); updateTransform(); });
+    btnZoomPlus.addEventListener('click', () => { zoomLevel = Math.min(maxZoom, zoomLevel + 0.5); updateTransform(); });
+    btnZoomMinus.addEventListener('click', () => { zoomLevel = Math.max(1.0, zoomLevel - 0.5); updateTransform(); });
+
+    btnSwitch.addEventListener('click', () => {
+      activeFacingMode = (activeFacingMode === 'user') ? 'environment' : 'user';
+      initCamera();
+    });
+
+    function toggleSwitchUI(el, active) {
+      const icon = el.querySelector('.switch-icon');
+      if (active) {
+        el.classList.add('m3-switch-active');
+        if (icon) icon.textContent = 'check';
+      } else {
+        el.classList.remove('m3-switch-active');
+        if (icon) icon.textContent = 'close';
+      }
+    }
+
+    function applyAspectRatio(ratio) {
+      currentAspectRatio = ratio;
+      videoContainer.classList.remove('ratio-4-3', 'ratio-16-9');
+      
+      if (ratio === '4-3') {
+        videoContainer.classList.add('ratio-4-3');
+        document.getElementById('aspect-text-icon').textContent = "4:3";
+        toggleSwitchUI(switchAspect, false);
+      } else {
+        videoContainer.classList.add('ratio-16-9');
+        document.getElementById('aspect-text-icon').textContent = "16:9";
+        toggleSwitchUI(switchAspect, true);
+      }
+      showToast(`画角を ${ratio} に変更したよ`);
+    }
+    
+    btnAspectToggle.addEventListener('click', () => applyAspectRatio(currentAspectRatio === '4-3' ? '16-9' : '4-3'));
+    switchAspect.addEventListener('click', () => applyAspectRatio(currentAspectRatio === '4-3' ? '16-9' : '4-3'));
+
+    switchQuality.addEventListener('click', () => {
+      const nextQ = (selectedQuality === 'FHD') ? '4K' : 'FHD';
+      selectedQuality = nextQ;
+      toggleSwitchUI(switchQuality, nextQ === '4K');
+      initCamera();
+      showToast(`画質を ${nextQ} に変更したよ`);
+    });
+
+    function setGridState(on) {
+      isGridOn = on;
+      if (isGridOn) {
+        gridOverlay.classList.remove('hidden');
+        btnGridToggle.querySelector('span').textContent = "grid_on";
+        btnGridToggle.classList.add('text-m3-primary');
+        toggleSwitchUI(switchGrid, true);
+      } else {
+        gridOverlay.classList.add('hidden');
+        btnGridToggle.querySelector('span').textContent = "grid_off";
+        btnGridToggle.classList.remove('text-m3-primary');
+        toggleSwitchUI(switchGrid, false);
+      }
+    }
+    btnGridToggle.addEventListener('click', () => setGridState(!isGridOn));
+    switchGrid.addEventListener('click', () => setGridState(!isGridOn));
+
+    function setTimerState(seconds) {
+      activeTimer = seconds;
+      const badge = document.getElementById('timer-badge');
+      const icon = document.getElementById('timer-icon');
+      if (seconds === 0) {
+        badge.classList.add('hidden');
+        icon.textContent = "timer_off";
+        btnTimerToggle.classList.remove('text-m3-primary');
+      } else {
+        badge.classList.remove('hidden');
+        badge.textContent = `${seconds}s`;
+        icon.textContent = "timer";
+        btnTimerToggle.classList.add('text-m3-primary');
+      }
+    }
+    btnTimerToggle.addEventListener('click', () => setTimerState(activeTimer === 0 ? 3 : (activeTimer === 3 ? 10 : 0)));
+
+    function setLivePhotoState(on) {
+      isLiveOn = on;
+      const badge = document.getElementById('livephoto-badge');
+      const icon = document.getElementById('livephoto-icon');
+      if (isLiveOn) {
+        badge.classList.remove('hidden');
+        icon.textContent = "motion_photos_on";
+        btnLivePhotoToggle.classList.add('text-m3-primary');
+        toggleSwitchUI(switchLive, true);
+      } else {
+        badge.classList.add('hidden');
+        icon.textContent = "motion_photos_off";
+        btnLivePhotoToggle.classList.remove('text-m3-primary');
+        toggleSwitchUI(switchLive, false);
+      }
+    }
+    btnLivePhotoToggle.addEventListener('click', () => setLivePhotoState(!isLiveOn));
+    switchLive.addEventListener('click', () => setLivePhotoState(!isLiveOn));
+
+    let levelInterval = null;
+    function setLevelerState(on) {
+      isLevelerOn = on;
+      if (isLevelerOn) {
+        leveler.classList.remove('hidden');
+        btnLevelToggle.classList.add('text-m3-primary');
+        toggleSwitchUI(switchLevel, true);
+        if (window.DeviceOrientationEvent) {
+          window.addEventListener('deviceorientation', handleOrientation);
+        } else {
+          let angle = 0, step = 0;
+          levelInterval = setInterval(() => {
+            step += 0.05;
+            angle = Math.sin(step) * 2.5;
+            applyLevelerAngle(angle);
+          }, 80);
+        }
+      } else {
+        leveler.classList.add('hidden');
+        btnLevelToggle.classList.remove('text-m3-primary');
+        toggleSwitchUI(switchLevel, false);
+        window.removeEventListener('deviceorientation', handleOrientation);
+        if (levelInterval) { clearInterval(levelInterval); levelInterval = null; }
+      }
+    }
+    function handleOrientation(e) {
+      let angle = e.gamma || 0;
+      applyLevelerAngle(angle);
+    }
+    function applyLevelerAngle(angle) {
+      if (Math.abs(angle) < 1.5) {
+        levelerBar.style.transform = `rotate(0deg)`;
+        levelerBar.className = "absolute w-28 h-[2px] bg-green-400";
+      } else {
+        levelerBar.style.transform = `rotate(${angle}deg)`;
+        levelerBar.className = "absolute w-28 h-[1.5px] bg-white";
+      }
+    }
+    btnLevelToggle.addEventListener('click', () => setLevelerState(!isLevelerOn));
+    switchLevel.addEventListener('click', () => setLevelerState(!isLevelerOn));
+
+    function changeMode(mode) {
+      if (isRecording) return;
+      activeMode = mode;
+      [tabVideo, tabPhoto, tabScan].forEach(t => t.className = "mode-item text-m3-onSurfaceVariant/70 px-4 py-2.5 rounded-xl transition-all");
+      scanEffect.classList.add('hidden');
+      video.style.filter = "none";
+
+      if (mode === 'video') {
+        tabVideo.className = "mode-item text-white bg-white/10 px-4 py-2.5 rounded-xl font-bold transition-all";
+        shutterInner.className = "w-full h-full rounded-full bg-red-600 scale-90 transition-all";
+      } else if (mode === 'scan') {
+        tabScan.className = "mode-item text-white bg-white/10 px-4 py-2.5 rounded-xl font-bold transition-all";
+        shutterInner.className = "w-full h-full rounded-full bg-cyan-400 scale-100 transition-all";
+        scanEffect.classList.remove('hidden');
+        video.style.filter = "contrast(1.2) brightness(1.05) saturate(0.7)";
+      } else {
+        tabPhoto.className = "mode-item text-white bg-white/10 px-4 py-2.5 rounded-xl font-bold transition-all";
+        shutterInner.className = "w-full h-full rounded-full bg-white scale-100 transition-all";
+      }
+    }
+    tabVideo.addEventListener('click', () => changeMode('video'));
+    tabPhoto.addEventListener('click', () => changeMode('photo'));
+    tabScan.addEventListener('click', () => changeMode('scan'));
+
+    btnShutter.addEventListener('click', () => {
+      if (isRecording) { stopRecording(); return; }
+      if (activeTimer > 0) {
+        countdownScreen.classList.remove('hidden');
+        let secs = activeTimer;
+        countdownNumber.textContent = secs;
+        const timer = setInterval(() => {
+          secs--;
+          if (secs <= 0) {
+            clearInterval(timer);
+            countdownScreen.classList.add('hidden');
+            triggerShutter();
+          } else {
+            countdownNumber.textContent = secs;
+          }
+        }, 1000);
+      } else {
+        triggerShutter();
+      }
+    });
+
+    function triggerShutter() {
+      if (activeMode === 'video') startRecording();
+      else capturePhoto();
+    }
+
+    function capturePhoto() {
+      if (!stream) return;
+      
+      const currentTime = Date.now();
+      const isBurstMode = (currentTime - lastCaptureTime) < burstDetectionThreshold;
+      lastCaptureTime = currentTime;
+
+      flashOverlay.style.opacity = '0.8';
+      setTimeout(() => { flashOverlay.style.opacity = '0'; }, 50);
+
+      setTimeout(() => {
+        const res = getIdealResolution();
+        let vWidth = video.videoWidth || res.width;
+        let vHeight = video.videoHeight || res.height;
+
+        sharedCanvas.width = vWidth;
+        sharedCanvas.height = (currentAspectRatio === '16-9') ? Math.round(vWidth * (9/16)) : Math.round(vWidth * (3/4));
+
+        const ctx = sharedCanvas.getContext('2d');
+        ctx.save();
+        if (activeFacingMode === 'user') { ctx.translate(sharedCanvas.width, 0); ctx.scale(-1, 1); }
+
+        let sx = 0, sy = 0, sw = vWidth, sh = vHeight;
+        if (zoomLevel > 1.0) {
+          sw = vWidth / zoomLevel; sh = vHeight / zoomLevel;
+          sx = (vWidth - sw) / 2; sy = (vHeight - sh) / 2;
+        }
+        if (activeMode === 'scan') ctx.filter = 'contrast(1.3) brightness(1.1)';
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sharedCanvas.width, sharedCanvas.height);
+        ctx.restore();
+
+        sharedCanvas.toBlob((blob) => {
+          if (!blob) return;
+          const objectUrl = URL.createObjectURL(blob);
+          
+          const newItem = {
+            id: currentTime,
+            type: 'image',
+            src: objectUrl,
+            liveSrc: null, 
+            mode: activeMode,
+            timestamp: new Date().toLocaleString('ja-JP')
+          };
+
+          galleryItems.unshift(newItem);
+
+          if (isBurstMode) {
+            pendingGalleryItems.push(newItem);
+            thumbImg.src = objectUrl;
+            thumbImg.classList.remove('hidden');
+            thumbPlaceholder.classList.add('hidden');
+            
+            if (batchRenderTimeout) clearTimeout(batchRenderTimeout);
+            batchRenderTimeout = setTimeout(() => {
+              appendNewItemsToDOM(pendingGalleryItems);
+              pendingGalleryItems = [];
+            }, 350);
+          } else {
+            addGalleryItem(newItem);
+            if (isLiveOn && !isRecording) {
+              captureLiveClip(newItem.id);
+            }
+          }
+        }, 'image/jpeg', 0.85);
+      }, 0);
+    }
+
+    function captureLiveClip(targetId) {
+      try {
+        let chunks = [];
+        const liveRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+        liveRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        liveRecorder.onstop = () => {
+          const blob = new Blob(chunks, { type: 'video/webm' });
+          const liveUrl = URL.createObjectURL(blob);
+          const found = galleryItems.find(i => i.id === targetId);
+          if (found) {
+            found.liveSrc = liveUrl;
+            updateGalleryUI();
+          }
+        };
+        liveRecorder.start();
+        setTimeout(() => { if (liveRecorder.state === 'recording') liveRecorder.stop(); }, 1200);
+      } catch (e) { console.warn("LivePhoto fail", e); }
+    }
+
+    function startRecording() {
+      recordedChunks = [];
+      try {
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+      } catch (e) { return; }
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        addGalleryItem({
+          id: Date.now(),
+          type: 'video',
+          src: URL.createObjectURL(blob),
+          mode: 'video',
+          timestamp: new Date().toLocaleString('ja-JP')
+        });
+      };
+      mediaRecorder.start();
+      isRecording = true;
+      recordingTimeSec = 0;
+      recordingBar.classList.remove('hidden');
+      shutterInner.className = "w-5 h-5 rounded bg-red-600 transition-all";
+      recordingInterval = setInterval(() => {
+        recordingTimeSec++;
+        const m = String(Math.floor(recordingTimeSec / 60)).padStart(2, '0');
+        const s = String(recordingTimeSec % 60).padStart(2, '0');
+        recordingTimer.textContent = `${m}:${s}`;
+      }, 1000);
+    }
+
+    function stopRecording() {
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+      mediaRecorder.stop();
+      isRecording = false;
+      clearInterval(recordingInterval);
+      recordingBar.classList.add('hidden');
+      shutterInner.className = "w-full h-full rounded-full bg-red-600 scale-90 transition-all";
+    }
+
+    function addGalleryItem(item) {
+      thumbImg.src = item.src;
+      thumbImg.classList.remove('hidden');
+      thumbPlaceholder.classList.add('hidden');
+      if (item.type === 'video') { thumbVideoBadge.classList.remove('hidden'); thumbLiveIndicator.classList.add('hidden'); }
+      else { thumbVideoBadge.classList.add('hidden'); }
+      updateGalleryUI();
+      selectGalleryItem(0);
+    }
+
+    function appendNewItemsToDOM(newItems) {
+      if (newItems.length === 0) return;
+      galleryEmpty.classList.add('hidden');
+      galleryCount.textContent = galleryItems.length;
+
+      newItems.forEach((item, index) => {
+        const cell = document.createElement('div');
+        const internalIndex = galleryItems.indexOf(item);
+        cell.className = `relative aspect-square overflow-hidden cursor-pointer border-2 transition-all duration-300 border-transparent hover:scale-102`;
+        
+        if (internalIndex % 3 === 0) { cell.style.borderRadius = "24px 12px 24px 16px"; } 
+        else if (internalIndex % 3 === 1) { cell.style.borderRadius = "12px 24px 16px 24px"; } 
+        else { cell.style.borderRadius = "20px 20px 12px 24px"; }
+
+        const img = document.createElement('img'); 
+        img.src = item.src; 
+        img.className = 'w-full h-full object-cover'; 
+        cell.appendChild(img);
+
+        cell.addEventListener('click', () => selectGalleryItem(internalIndex));
+        galleryGridContainer.prepend(cell);
+      });
+      selectGalleryItem(0);
+    }
+
+    function updateGalleryUI() {
+      galleryCount.textContent = galleryItems.length;
+      if (galleryItems.length === 0) { galleryEmpty.classList.remove('hidden'); galleryGridContainer.innerHTML = ''; clearDetailPreview(); return; }
+      galleryEmpty.classList.add('hidden');
+      galleryGridContainer.innerHTML = '';
+      
+      if (galleryItems[0] && galleryItems[0].liveSrc) thumbLiveIndicator.classList.remove('hidden');
+      else thumbLiveIndicator.classList.add('hidden');
+
+      galleryItems.forEach((item, index) => {
+        const cell = document.createElement('div');
+        cell.className = `relative aspect-square overflow-hidden cursor-pointer border-2 transition-all duration-300 ${selectedItemIndex === index ? 'border-m3-primary scale-95 shadow-lg' : 'border-transparent hover:scale-102'}`;
+        
+        if (index % 3 === 0) { cell.style.borderRadius = "24px 12px 24px 16px"; } 
+        else if (index % 3 === 1) { cell.style.borderRadius = "12px 24px 16px 24px"; } 
+        else { cell.style.borderRadius = "20px 20px 12px 24px"; }
+
+        if (item.type === 'image') {
+          const img = document.createElement('img'); img.src = item.src; img.className = 'w-full h-full object-cover'; cell.appendChild(img);
+          if (item.liveSrc) {
+            const b = document.createElement('div'); b.className = 'absolute top-1.5 left-1.5 bg-yellow-400 text-black text-[8px] px-1.5 py-0.5 rounded-full font-bold shadow'; b.textContent = 'LIVE'; cell.appendChild(b);
+          }
+        } else {
+          cell.className += ' bg-m3-surfaceVariant flex items-center justify-center';
+          cell.innerHTML = `<span class="material-symbols-outlined text-m3-primary !text-3xl filled">play_circle</span>`;
+        }
+        cell.addEventListener('click', () => selectGalleryItem(index));
+        galleryGridContainer.appendChild(cell);
+      });
+    }
+
+    function selectGalleryItem(index) {
+      if (index < 0 || index >= galleryItems.length) { clearDetailPreview(); return; }
+      selectedItemIndex = index;
+      const item = galleryItems[index];
+      updateGalleryUI();
+      detailPlaceholder.classList.add('hidden');
+      detailInfo.classList.remove('hidden');
+      btnSave.removeAttribute('disabled');
+      btnDelete.removeAttribute('disabled');
+      detailTime.textContent = item.timestamp;
+      detailType.textContent = item.type.toUpperCase();
+      livePlaybackBanner.classList.add('hidden');
+
+      if (item.type === 'image') {
+        detailImg.src = item.src; detailImg.classList.remove('hidden'); detailVideo.classList.add('hidden'); detailVideo.pause();
+        if (item.liveSrc) {
+          livePlaybackBanner.classList.remove('hidden');
+          detailVideo.src = item.liveSrc;
+          const playL = () => { detailImg.classList.add('hidden'); detailVideo.classList.remove('hidden'); detailVideo.play(); };
+          const stopL = () => { detailVideo.pause(); detailVideo.classList.add('hidden'); detailImg.classList.remove('hidden'); };
+          const pb = document.getElementById('preview-box');
+          pb.onmousedown = playL; pb.onmouseup = stopL; pb.ontouchstart = playL; pb.ontouchend = stopL;
+        } else {
+          const pb = document.getElementById('preview-box'); pb.onmousedown = pb.onmouseup = pb.ontouchstart = pb.ontouchend = null;
+        }
+      } else {
+        detailVideo.src = item.src; detailVideo.classList.remove('hidden'); detailImg.classList.add('hidden');
+        const pb = document.getElementById('preview-box'); pb.onmousedown = pb.onmouseup = pb.ontouchstart = pb.ontouchend = null;
+      }
+    }
+
+    function clearDetailPreview() {
+      selectedItemIndex = -1; detailImg.classList.add('hidden'); detailVideo.classList.add('hidden'); detailVideo.pause();
+      detailPlaceholder.classList.remove('hidden'); detailInfo.classList.add('hidden'); livePlaybackBanner.classList.add('hidden');
+      btnSave.setAttribute('disabled', 'true'); btnDelete.setAttribute('disabled', 'true');
+    }
+
+    btnGalleryThumb.addEventListener('click', () => { galleryModal.classList.remove('translate-y-full'); updateGalleryUI(); if(galleryItems.length > 0 && selectedItemIndex === -1) selectGalleryItem(0); });
+    btnCloseGallery.addEventListener('click', () => { galleryModal.classList.add('translate-y-full'); detailVideo.pause(); });
+
+    btnSave.addEventListener('click', () => {
+      if (selectedItemIndex === -1) return;
+      const item = galleryItems[selectedItemIndex];
+      const a = document.createElement('a'); a.href = item.src; a.download = `camera_${item.id}.${item.type === 'video' ? 'webm' : 'jpg'}`;
+      a.click();
+      if(item.liveSrc) {
+        setTimeout(() => { const a2 = document.createElement('a'); a2.href = item.liveSrc; a2.download = `live_${item.id}.webm`; a2.click(); }, 200);
+      }
+      showToast("デバイスのアルバムに保存したよ！");
+    });
+
+    btnDelete.addEventListener('click', () => {
+      if (selectedItemIndex === -1) return;
+      galleryItems.splice(selectedItemIndex, 1);
+      if (galleryItems.length > 0) {
+        thumbImg.src = galleryItems[0].src;
+        selectGalleryItem(0);
+      } else {
+        thumbImg.classList.add('hidden'); thumbPlaceholder.classList.remove('hidden'); thumbVideoBadge.classList.add('hidden'); thumbLiveIndicator.classList.add('hidden'); clearDetailPreview(); updateGalleryUI();
+      }
+      showToast("削除したよ");
+    });
+
+    btnClearAll.addEventListener('click', () => {
+      if (confirm("ギャラリーにあるすべてのメディアを削除していい？")) {
+        galleryItems = []; thumbImg.classList.add('hidden'); thumbPlaceholder.classList.remove('hidden'); thumbVideoBadge.classList.add('hidden'); thumbLiveIndicator.classList.add('hidden'); clearDetailPreview(); updateGalleryUI();
+      }
+    });
+
+    btnSettingsToggle.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+    btnCloseSettings.addEventListener('click', () => settingsModal.classList.add('hidden'));
+
+    btnRequestAuth.addEventListener('click', initCamera);
+    window.onload = () => { initCamera(); applyAspectRatio('4-3'); };
+  </script>
+</body>
+</html>
+
+```
