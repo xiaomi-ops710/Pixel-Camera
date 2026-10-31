@@ -12,35 +12,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="preload" href="icons/material-symbols.woff" as="font" type="font/woff" crossorigin>
 <title>無音カメラ</title>
+<link rel="stylesheet" href="icons.css">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-<!-- ===== アイコンスプライト ===== -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
-  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/></symbol>
-  <symbol id="i-level" viewBox="0 0 24 24"><path d="M3 12h5M16 12h5"/><circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3"/></symbol>
-  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 3h5"/></symbol>
-  <symbol id="i-timer-off" viewBox="0 0 24 24"><circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 3h5M4 4l16 16"/></symbol>
-  <symbol id="i-flip" viewBox="0 0 24 24"><path d="M19.5 5v4.5H15M4.5 19v-4.5H9"/><path d="M18.6 9.5A7.5 7.5 0 0 0 5.4 8.2M5.4 14.5a7.5 7.5 0 0 0 13.2 1.3"/></symbol>
-  <symbol id="i-burst" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M5 16V6a2 2 0 0 1 2-2h10"/></symbol>
-  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 4 3.5 3-2.5 4 3.5"/></symbol>
-  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
-  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
-  <symbol id="i-next" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
-  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 12.5h8L17 7M10.5 11v5M13.5 11v5"/></symbol>
-  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.3"/><circle cx="17.5" cy="6" r="2.3"/><circle cx="17.5" cy="18" r="2.3"/><path d="M8 11l7.5-4M8 13l7.5 4"/></symbol>
-  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 11l4.5 4.5 4.5-4.5M5 19.5h14"/></symbol>
-  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
-  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
-  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></symbol>
-  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13.5" r="3.5"/></symbol>
-  <symbol id="i-select" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
-  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></symbol>
-</svg>
 
 <div id="app" data-mode="photo">
 
@@ -58,48 +35,51 @@
       <div id="countdown" hidden></div>
     </div>
 
-    <!-- 左上ツールバー -->
+    <!-- 上部ツールバー -->
     <div id="topbar">
-      <button class="ib sm" id="btn-settings" aria-label="設定"><svg class="ic"><use href="#i-sliders"/></svg></button>
-      <button class="ib sm" id="btn-grid" aria-label="グリッド"><svg class="ic"><use href="#i-grid"/></svg></button>
-      <button class="ib sm" id="btn-level" aria-label="水準器"><svg class="ic"><use href="#i-level"/></svg></button>
-      <span class="chip silent"><svg class="ic"><use href="#i-mute"/></svg>無音</span>
+      <button class="ib sm" id="btn-settings" aria-label="設定"><span class="ms i-tune"></span></button>
+      <button class="ib sm" id="btn-grid" aria-label="グリッド"><span class="ms i-grid-on"></span></button>
+      <button class="ib sm" id="btn-level" aria-label="水準器"><span class="ms i-straighten"></span></button>
+      <button class="ib sm" id="btn-enh" aria-label="資料補正コピー"><span class="ms i-auto-fix-high"></span></button>
+      <button class="ib sm" id="btn-dim" aria-label="画面を暗くする"><span class="ms i-brightness-6"></span></button>
+      <span class="chip silent"><span class="ms i-volume-off"></span>無音</span>
       <span class="chip" id="chip-res">—</span>
+      <span class="chip lock" id="chip-lock" hidden><span class="ms i-lock fill"></span>AE/AF</span>
     </div>
 
-    <!-- 録画タイマー / 連写カウンタ -->
     <div id="rec-chip" hidden><span class="dot"></span><span id="rec-time">0:00</span></div>
     <div id="burst-chip" hidden><span id="burst-n">0</span> 枚</div>
     <div id="pending-chip" hidden>保存中 <span id="pending-n">0</span></div>
 
-    <!-- ズーム -->
+    <!-- ズーム / 露出 -->
     <button class="ib zoombtn" id="zoombtn" aria-label="ズーム">1×</button>
-    <div id="zoompanel" hidden>
+    <div id="zoompanel">
       <div id="zoompresets"></div>
-      <input id="zoomslider" type="range" min="1" max="10" step="0.05" value="1" aria-label="ズーム倍率">
+      <div class="slrow"><span class="ms i-zoom-in sm"></span><input id="zoomslider" type="range" min="1" max="10" step="0.05" value="1" aria-label="ズーム倍率"></div>
+      <div class="slrow" id="exprow" hidden><span class="ms i-exposure sm"></span><input id="expslider" type="range" min="-2" max="2" step="0.1" value="0" aria-label="露出補正"></div>
     </div>
 
-    <!-- エラー表示 -->
     <div id="camerror" hidden>
       <div class="card">
         <h2>カメラを開始できません</h2>
         <p id="camerror-msg"></p>
-        <button class="btn filled" id="btn-retry">もう一度試す</button>
+        <button class="btn filled" id="btn-retry"><span class="ms i-restart-alt sm"></span>もう一度試す</button>
       </div>
     </div>
   </main>
 
   <!-- ===== 操作パネル ===== -->
   <aside id="controls">
-    <button class="ib" id="btn-burst" aria-label="連写モード"><svg class="ic"><use href="#i-burst"/></svg></button>
-    <button class="ib" id="btn-timer" aria-label="セルフタイマー"><svg class="ic"><use href="#i-timer-off"/></svg><span class="sub" id="timer-sub"></span></button>
-    <button class="ib" id="btn-flip" aria-label="カメラ切替"><svg class="ic"><use href="#i-flip"/></svg></button>
+    <button class="ib" id="btn-burst" aria-label="連写モード"><span class="ms i-burst-mode"></span></button>
+    <button class="ib" id="btn-timer" aria-label="セルフタイマー"><span class="ms i-timer-off"></span><span class="sub" id="timer-sub"></span></button>
+    <button class="ib" id="btn-flip" aria-label="カメラ切替"><span class="ms i-flip-camera-ios"></span></button>
     <div id="shutter-wrap">
       <button id="shutter" aria-label="シャッター"><span id="shutter-in"></span></button>
-      <button class="ib sm" id="btn-snap" hidden aria-label="録画中に静止画"><svg class="ic"><use href="#i-camera"/></svg></button>
+      <button class="ib sm" id="btn-snap" hidden aria-label="録画中に静止画"><span class="ms i-photo-camera"></span></button>
     </div>
-    <button id="btn-gallery" aria-label="ギャラリー"><img id="thumb" alt=""><svg class="ic" id="thumb-ph"><use href="#i-image"/></svg></button>
+    <button id="btn-gallery" aria-label="ギャラリー"><img id="thumb" alt=""><span class="ms i-photo-library" id="thumb-ph"></span></button>
     <nav id="modes">
+      <span class="ind"></span>
       <button class="mode" data-mode="video">ビデオ</button>
       <button class="mode sel" data-mode="photo">写真</button>
       <button class="mode" data-mode="square">スクエア</button>
@@ -110,42 +90,47 @@
 <!-- ===== ギャラリー ===== -->
 <section id="gallery" class="sheet" hidden>
   <header class="appbar">
-    <button class="ib flat" id="g-close" aria-label="閉じる"><svg class="ic"><use href="#i-back"/></svg></button>
+    <button class="ib flat" id="g-close" aria-label="閉じる"><span class="ms i-arrow-back"></span></button>
     <h1 id="g-title">ギャラリー</h1>
     <div class="spacer"></div>
-    <button class="btn text" id="g-select">選択</button>
+    <span id="g-total"></span>
+    <button class="btn text" id="g-select"><span class="ms i-check-circle sm"></span><span id="g-select-t">選択</span></button>
   </header>
   <div class="chips" id="g-filters">
     <button class="fchip sel" data-f="all">すべて</button>
-    <button class="fchip" data-f="photo">写真</button>
-    <button class="fchip" data-f="video">ビデオ</button>
+    <button class="fchip" data-f="photo"><span class="ms i-photo sm"></span>写真</button>
+    <button class="fchip" data-f="video"><span class="ms i-videocam sm"></span>ビデオ</button>
+    <button class="fchip" data-f="fav"><span class="ms i-star sm fill"></span>お気に入り</button>
   </div>
   <div id="g-grid"></div>
-  <div id="g-empty" hidden>まだ撮影した項目がありません</div>
+  <div id="g-empty" hidden><span class="ms i-add-a-photo"></span><p>まだ撮影した項目がありません</p></div>
   <footer id="g-actions" hidden>
     <span id="g-count">0件選択</span>
     <div class="spacer"></div>
-    <button class="btn tonal" id="g-all">すべて選択</button>
-    <button class="btn tonal" id="g-share"><svg class="ic sm"><use href="#i-share"/></svg>共有・保存</button>
-    <button class="btn tonal danger" id="g-del"><svg class="ic sm"><use href="#i-trash"/></svg>削除</button>
+    <button class="btn tonal" id="g-all"><span class="ms i-select-all sm"></span><span class="lb">全選択</span></button>
+    <button class="btn tonal" id="g-fav"><span class="ms i-star sm"></span><span class="lb">お気に入り</span></button>
+    <button class="btn tonal" id="g-zip"><span class="ms i-folder-zip sm"></span><span class="lb">ZIP</span></button>
+    <button class="btn tonal" id="g-share"><span class="ms i-share sm"></span><span class="lb">共有・保存</span></button>
+    <button class="btn tonal danger" id="g-del"><span class="ms i-delete sm"></span><span class="lb">削除</span></button>
   </footer>
 </section>
 
 <!-- ===== ビューア ===== -->
 <section id="viewer" class="sheet black" hidden>
   <header class="appbar overlay">
-    <button class="ib flat" id="v-close" aria-label="戻る"><svg class="ic"><use href="#i-back"/></svg></button>
+    <button class="ib flat" id="v-close" aria-label="戻る"><span class="ms i-arrow-back"></span></button>
     <h1 id="v-title"></h1>
     <div class="spacer"></div>
-    <button class="ib flat" id="v-info" aria-label="情報"><svg class="ic"><use href="#i-info"/></svg></button>
-    <button class="ib flat" id="v-download" aria-label="ファイルに保存"><svg class="ic"><use href="#i-download"/></svg></button>
-    <button class="ib flat" id="v-share" aria-label="共有"><svg class="ic"><use href="#i-share"/></svg></button>
-    <button class="ib flat" id="v-del" aria-label="削除"><svg class="ic"><use href="#i-trash"/></svg></button>
+    <button class="ib flat" id="v-fav" aria-label="お気に入り"><span class="ms i-star"></span></button>
+    <button class="ib flat" id="v-info" aria-label="情報"><span class="ms i-info"></span></button>
+    <button class="ib flat" id="v-download" aria-label="ファイルに保存"><span class="ms i-download"></span></button>
+    <button class="ib flat" id="v-share" aria-label="共有"><span class="ms i-share"></span></button>
+    <button class="ib flat" id="v-del" aria-label="削除"><span class="ms i-delete"></span></button>
   </header>
   <div id="vstage"></div>
-  <button class="ib nav l" id="v-prev" aria-label="前へ"><svg class="ic"><use href="#i-back"/></svg></button>
-  <button class="ib nav r" id="v-next" aria-label="次へ"><svg class="ic"><use href="#i-next"/></svg></button>
-  <div id="v-infobox" hidden></div>
+  <button class="ib nav l" id="v-prev" aria-label="前へ"><span class="ms i-chevron-left"></span></button>
+  <button class="ib nav r" id="v-next" aria-label="次へ"><span class="ms i-chevron-right"></span></button>
+  <div id="v-infobox"></div>
 </section>
 
 <!-- ===== 設定 ===== -->
@@ -153,7 +138,7 @@
   <div class="panel">
     <header class="appbar">
       <h1>設定</h1><div class="spacer"></div>
-      <button class="ib flat" id="s-close" aria-label="閉じる"><svg class="ic"><use href="#i-close"/></svg></button>
+      <button class="ib flat" id="s-close" aria-label="閉じる"><span class="ms i-close"></span></button>
     </header>
 
     <h3>写真の画質</h3>
@@ -164,7 +149,17 @@
     <div class="row col"><label>JPEG品質 <b id="q-val"></b><small>95〜100推奨。資料の細かい文字は高いほど有利</small></label>
       <input type="range" data-key="quality" min="0.8" max="1" step="0.01"></div>
     <div class="row"><label>デジタルズーム時の出力<small>「切り出し」は拡大補間せず元画素のまま保存</small></label>
-      <div class="seg" data-key="zoomOut"><button data-v="crop">切り出し(劣化なし)</button><button data-v="fit">元サイズに拡大</button></div></div>
+      <div class="seg" data-key="zoomOut"><button data-v="crop">切り出し</button><button data-v="fit">元サイズに拡大</button></div></div>
+
+    <h3>資料撮影</h3>
+    <div class="row"><label>補正コピーも同時に保存<small>元画像はそのまま残し、補正版を別ファイル(_enh)で追加保存</small></label>
+      <input type="checkbox" class="switch" data-key="enhance"></div>
+    <div class="row"><label>補正の種類<small>自動レベル=明暗を自動で伸ばす / 白黒資料=さらに無彩色化</small></label>
+      <div class="seg" data-key="enhMode"><button data-v="levels">自動レベル</button><button data-v="gray">白黒資料</button></div></div>
+    <div class="row"><label>ブレ抑制シャッター<small>端末の揺れが収まるのを待ってから撮影(最大1.5秒)</small></label>
+      <input type="checkbox" class="switch" data-key="steady"></div>
+    <div class="row"><label>ファイル名の接頭辞<small>本のタイトルなどを入れると整理しやすい(例: 日本史B_)</small></label>
+      <input type="text" class="txt" data-key="prefix" maxlength="24" placeholder="IMG" autocomplete="off" autocapitalize="off"></div>
 
     <h3>ビデオ</h3>
     <div class="row"><label>解像度</label>
@@ -183,26 +178,33 @@
     <h3>表示・操作</h3>
     <div class="row"><label>グリッド</label><input type="checkbox" class="switch" data-key="grid"></div>
     <div class="row"><label>水準器<small>机に置いて真上から撮る時は十字、立てた時は水平線</small></label><input type="checkbox" class="switch" data-key="level"></div>
+    <div class="row"><label>画面の暗さ<small>暗い閲覧室で画面の光を抑える(上部の☀︎ボタンでも切替)</small></label>
+      <div class="seg" data-key="dim"><button data-v="0">なし</button><button data-v="0.35">弱</button><button data-v="0.6">強</button></div></div>
     <div class="row"><label>撮影時の画面フラッシュ<small>音の代わりの視覚フィードバック</small></label><input type="checkbox" class="switch" data-key="flash"></div>
+    <div class="row"><label>アニメーション<small>OFFにすると動きを最小限にします</small></label><input type="checkbox" class="switch" data-key="anim"></div>
     <div class="row"><label>前面カメラの保存時にミラー反転</label><input type="checkbox" class="switch" data-key="mirror"></div>
 
+    <h3>外部キーボード / リモコン</h3>
+    <p class="about"><b>Space・Enter・→・PageDown</b>=シャッター(ページめくり用Bluetoothリモコンも使えます) / <b>+ −</b>=ズーム / <b>G</b>=グリッド / <b>画面長押し</b>=AE/AFロック</p>
+
     <h3>ストレージ</h3>
-    <div class="row col"><label>使用量 <b id="s-usage">—</b><small>撮影データはこの端末内(アプリ内)に保存されます。ギャラリーから「共有・保存」で写真Appやファイルへ書き出せます。</small></label>
-      <button class="btn tonal danger" id="s-wipe">すべての撮影データを削除</button></div>
+    <div class="row col"><label>使用量 <b id="s-usage">—</b><small>撮影データはこの端末内(アプリ内)に保存されます。ギャラリーから「共有・保存」または「ZIP」で書き出せます。</small></label>
+      <button class="btn tonal danger" id="s-wipe"><span class="ms i-delete-forever sm"></span>すべての撮影データを削除</button></div>
 
     <h3>このアプリについて</h3>
-    <p class="about">シャッター音・効果音・振動を一切使用しません。端末の消音スイッチやマナー設定に依存しない、図書館向けの静音設計です。画像はプレビューと同じ映像ストリームの原寸フレームから直接書き出し、再圧縮や縮小を行いません。</p>
+    <p class="about">シャッター音・効果音・振動を一切使用しません。端末の消音スイッチやマナー設定に依存しない、図書館向けの静音設計です。画像はプレビューと同じ映像ストリームの原寸フレームから直接書き出し、再圧縮や縮小を行いません。アイコンは Material Symbols (Apache License 2.0) を端末内に同梱しています。</p>
   </div>
 </section>
 
-<!-- ===== ダイアログ / トースト ===== -->
+<!-- ===== ダイアログ / トースト / 暗転 ===== -->
 <div id="dlg" class="scrim" hidden>
   <div class="dialog" role="dialog" aria-modal="true">
     <h2 id="dlg-title"></h2><p id="dlg-text"></p>
     <div class="actions"><button class="btn text" id="dlg-cancel">キャンセル</button><button class="btn text strong" id="dlg-ok">OK</button></div>
   </div>
 </div>
-<div id="toast" hidden><span></span></div>
+<div id="toast"><span></span></div>
+<div id="dim"></div>
 
 <script src="app.js"></script>
 </body>

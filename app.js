@@ -16,8 +16,9 @@ const fmtBytes = b => b > 1e9 ? (b / 1e9).toFixed(2) + ' GB' : b > 1e6 ? (b / 1e
 const fmtDur = s => `${Math.floor(s / 60)}:${pad(Math.floor(s % 60))}`;
 const stamp = ts => { const d = new Date(ts); return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}_${pad(d.getMilliseconds(), 3)}`; };
 const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const show = el => { el.hidden = false; el.classList.add('open'); };
-const hide = el => { el.classList.remove('open'); el.hidden = true; };
+const show = el => { clearTimeout(el._t); el.classList.remove('closing'); el.hidden = false; void el.offsetWidth; el.classList.add('open'); };
+const hide = el => { if (el.hidden) return; el.classList.remove('open'); el.classList.add('closing'); clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove('closing'); el.hidden = true; }, 240); };
+const reduceMotion = () => !cfg.anim || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 
 /* ---------- 設定 ---------- */
 const DEF = {
@@ -25,7 +26,8 @@ const DEF = {
   videoRes: '2160', fps: 30, audio: false,
   burstInterval: 0, burstMax: 60,
   grid: false, level: false, flash: true, mirror: false,
-  timer: 0, burstMode: false, facing: 'environment', mode: 'photo'
+  timer: 0, burstMode: false, facing: 'environment', mode: 'photo',
+  prefix: 'IMG', enhance: false, enhMode: 'levels', steady: false, dim: 0, anim: true
 };
 let cfg = { ...DEF };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('silentcam-cfg') || '{}')); } catch (_) {}
@@ -34,9 +36,18 @@ const saveCfg = () => { try { localStorage.setItem('silentcam-cfg', JSON.stringi
 /* ---------- トースト / ダイアログ ---------- */
 let toastTimer;
 function toast(msg, ms = 2600) {
-  const t = $('#toast'); t.firstElementChild.textContent = msg; t.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms);
+  const t = $('#toast'); t.firstElementChild.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('on'), ms);
 }
+/* マテリアル風リップル(ボタン押下時の波紋) */
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest && e.target.closest('.ib,.btn,.mode,.fchip,.seg button');
+  if (!b || reduceMotion()) return;
+  const r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2;
+  const el = document.createElement('span'); el.className = 'ripple';
+  el.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+  b.appendChild(el); setTimeout(() => el.remove(), 650);
+}, { passive: true });
 function dialog({ title, text, ok = 'OK', cancel = 'キャンセル', onOk }) {
   return new Promise(res => {
     $('#dlg-title').textContent = title; $('#dlg-text').textContent = text;
@@ -70,6 +81,12 @@ const DB = {
       rq.onsuccess = () => { meta.id = rq.result; t.objectStore('blobs').put({ id: rq.result, blob }); };
       t.oncomplete = () => res(meta);
       t.onerror = t.onabort = () => rej(t.error || new Error('保存に失敗'));
+    });
+  },
+  put(meta) {
+    return new Promise((res, rej) => {
+      const t = this.db.transaction('meta', 'readwrite'); t.objectStore('meta').put(meta);
+      t.oncomplete = () => res(); t.onerror = () => rej(t.error);
     });
   },
   list() {
@@ -139,6 +156,7 @@ function startCamera() {
 async function _startCamera() {
   if (recording) return;
   stopStream();
+  viewport.classList.add('switching');
   $('#camerror').hidden = true;
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     return showError('このブラウザはカメラAPIに対応していません。HTTPS(GitHub Pages)で、Safariから開いてください。');
@@ -175,12 +193,14 @@ async function _startCamera() {
   layout();
   updateResChip();
   lockScreen();
+  aeLocked = false; updateLockUI(); setupExposure(caps);
+  viewport.classList.remove('switching');
 }
 function stopStream() {
   if (stream) stream.getTracks().forEach(t => t.stop());
   stream = null; track = null; video.srcObject = null;
 }
-function showError(msg) { $('#camerror-msg').textContent = msg; $('#camerror').hidden = false; }
+function showError(msg) { viewport.classList.remove('switching'); $('#camerror-msg').textContent = msg; $('#camerror').hidden = false; }
 
 function updateResChip() {
   const s = track ? track.getSettings() : {};
@@ -250,18 +270,49 @@ function buildZoomUI() {
   });
 }
 let zpTimer;
-function keepZoomPanel() { clearTimeout(zpTimer); zpTimer = setTimeout(() => $('#zoompanel').hidden = true, 4500); }
-$('#zoombtn').onclick = () => { const p = $('#zoompanel'); p.hidden = !p.hidden; if (!p.hidden) keepZoomPanel(); };
+const panelShow = on => $('#zoompanel').classList.toggle('show', on);
+function keepZoomPanel() { clearTimeout(zpTimer); zpTimer = setTimeout(() => panelShow(false), 4500); }
+$('#zoombtn').onclick = () => { const on = !$('#zoompanel').classList.contains('show'); panelShow(on); if (on) keepZoomPanel(); };
+
+/* ---------- 露出補正 / AE・AFロック ---------- */
+let aeLocked = false;
+function setupExposure(caps) {
+  const ec = caps.exposureCompensation, row = $('#exprow');
+  if (ec && ec.max > ec.min) { const sl = $('#expslider'); sl.min = ec.min; sl.max = ec.max; sl.step = ec.step || 0.1; sl.value = 0; row.hidden = false; }
+  else row.hidden = true;
+}
+$('#expslider').oninput = e => { if (track) track.applyConstraints({ advanced: [{ exposureCompensation: parseFloat(e.target.value) }] }).catch(() => {}); keepZoomPanel(); };
+function updateLockUI() { $('#chip-lock').hidden = !aeLocked; if (!aeLocked) $('#focus').classList.remove('lock'); }
+async function setAeLock(on) {
+  if (!track) return false;
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  const fm = caps.focusMode || [], em = caps.exposureMode || [], adv = {};
+  if (on) { if (fm.includes('manual')) adv.focusMode = 'manual'; if (em.includes('manual')) adv.exposureMode = 'manual'; }
+  else { if (fm.includes('continuous')) adv.focusMode = 'continuous'; if (em.includes('continuous')) adv.exposureMode = 'continuous'; }
+  if (!Object.keys(adv).length) { toast('このカメラはAE/AFロックに対応していません'); return false; }
+  try { await track.applyConstraints({ advanced: [adv] }); } catch (e) { toast('AE/AFロックに失敗しました'); return false; }
+  aeLocked = on; updateLockUI(); toast(on ? 'AE/AFロック中(もう一度長押しで解除)' : 'AE/AFロックを解除しました');
+  return true;
+}
 $('#zoomslider').oninput = e => { setZoom(parseFloat(e.target.value)); keepZoomPanel(); };
 
 /* ---------- ジェスチャ(ピンチ=ズーム / ドラッグ=パン / タップ=ピント) ---------- */
 (() => {
-  const ptrs = new Map(); let pinch = null, pan = null;
+  const ptrs = new Map(); let pinch = null, pan = null, lpT = null;
   const dist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   viewport.addEventListener('pointerdown', e => {
     viewport.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size === 2) { pinch = { d: dist(), z: zoom }; pan = null; }
-    else pan = { x: e.clientX, y: e.clientY, fx, fy, moved: false, t: performance.now() };
+    if (ptrs.size === 2) { pinch = { d: dist(), z: zoom }; pan = null; clearTimeout(lpT); }
+    else {
+      pan = { x: e.clientX, y: e.clientY, fx, fy, moved: false, t: performance.now() };
+      const cx = e.clientX, cy = e.clientY; clearTimeout(lpT);
+      lpT = setTimeout(async () => {
+        if (!pan || pan.moved) return; pan.long = true;
+        const ok = await setAeLock(!aeLocked);
+        if (ok && aeLocked) { const r = viewport.getBoundingClientRect(), f = $('#focus'); f.hidden = true; void f.offsetWidth; f.className = 'lock'; f.style.left = (cx - r.left) + 'px'; f.style.top = (cy - r.top) + 'px'; f.hidden = false; }
+        else if (ok) $('#focus').hidden = true;
+      }, 550);
+    }
   });
   viewport.addEventListener('pointermove', e => {
     if (!ptrs.has(e.pointerId)) return;
@@ -269,7 +320,7 @@ $('#zoomslider').oninput = e => { setZoom(parseFloat(e.target.value)); keepZoomP
     if (ptrs.size === 2 && pinch) { setZoom(pinch.z * dist() / pinch.d); keepZoomPanel(); }
     else if (pan && ptrs.size === 1) {
       const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
-      if (Math.hypot(dx, dy) > 8) pan.moved = true;
+      if (Math.hypot(dx, dy) > 8) { pan.moved = true; clearTimeout(lpT); }
       if (pan.moved && digital() > 1.0001) {
         const mir = cfg.facing === 'user' ? -1 : 1;
         fx = pan.fx - (dx / viewport.clientWidth) / digital(); fy = pan.fy - (dy / viewport.clientHeight) / digital();
@@ -278,7 +329,8 @@ $('#zoomslider').oninput = e => { setZoom(parseFloat(e.target.value)); keepZoomP
     }
   });
   const end = e => {
-    if (pan && !pan.moved && ptrs.size === 1 && performance.now() - pan.t < 400) tapFocus(e);
+    clearTimeout(lpT);
+    if (pan && !pan.moved && !pan.long && ptrs.size === 1 && performance.now() - pan.t < 400) tapFocus(e);
     ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (ptrs.size === 0) pan = null;
   };
   viewport.addEventListener('pointerup', end); viewport.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = pan = null; });
@@ -286,9 +338,9 @@ $('#zoomslider').oninput = e => { setZoom(parseFloat(e.target.value)); keepZoomP
 })();
 
 function tapFocus(e) {
-  $('#zoompanel').hidden = true;
+  panelShow(false); if (aeLocked) return;
   const r = viewport.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
-  const f = $('#focus'); f.hidden = true; void f.offsetWidth; f.style.left = x + 'px'; f.style.top = y + 'px'; f.hidden = false;
+  const f = $('#focus'); f.hidden = true; void f.offsetWidth; f.className = ''; f.style.left = x + 'px'; f.style.top = y + 'px'; f.hidden = false;
   try {
     const caps = track.getCapabilities ? track.getCapabilities() : {};
     const adv = {};
@@ -330,6 +382,34 @@ async function makeThumb(bmp, p) {
   x.drawImage(bmp, p.sx, p.sy, p.sw, p.sh, 0, 0, c.width, c.height);
   return toBlob(c, 'image/jpeg', 0.78);
 }
+function fileBase(def) {
+  let b = (cfg.prefix || '').trim().replace(/[\\/:*?"<>|]/g, '_'); if (!b || b === 'IMG') b = def;
+  return /[_\-]$/.test(b) ? b : b + '_';
+}
+// 自動レベル補正(紙の白を白へ・黒を黒へ)/ 白黒資料化。元画像は変更せず別コピーとして保存
+function enhanceCanvas(c, gray) {
+  const x = c.getContext('2d'), img = x.getImageData(0, 0, c.width, c.height), d = img.data, n = d.length;
+  const h = new Uint32Array(256), total = c.width * c.height;
+  for (let i = 0; i < n; i += 4) h[(d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8]++;
+  let lo = 0, hi = 255, acc = 0;
+  for (let i = 0; i < 256; i++) { acc += h[i]; if (acc > total * .005) { lo = i; break; } }
+  acc = 0; for (let i = 255; i >= 0; i--) { acc += h[i]; if (acc > total * .01) { hi = i; break; } }
+  if (hi - lo < 32) { lo = 0; hi = 255; }
+  const lut = new Uint8ClampedArray(256);
+  for (let i = 0; i < 256; i++) lut[i] = Math.pow(clamp((i - lo) / (hi - lo), 0, 1), gray ? 1.1 : .95) * 255;
+  for (let i = 0; i < n; i += 4) {
+    if (gray) { const v = lut[(d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8]; d[i] = d[i + 1] = d[i + 2] = v; }
+    else { d[i] = lut[d[i]]; d[i + 1] = lut[d[i + 1]]; d[i + 2] = lut[d[i + 2]]; }
+  }
+  x.putImageData(img, 0, 0);
+}
+async function saveEnhanced(c, ts, ext) {
+  enhanceCanvas(c, cfg.enhMode === 'gray');
+  const blob = await toBlob(c, 'image/jpeg', Math.max(cfg.quality, .95)); if (!blob) return;
+  const thumb = await makeThumb(c, { sx: 0, sy: 0, sw: c.width, sh: c.height });
+  const meta = { type: 'photo', ts: ts + 1, fav: false, name: `${fileBase('IMG')}${stamp(ts)}_enh.jpg`, w: c.width, h: c.height, size: blob.size, mime: 'image/jpeg', thumb };
+  return DB.add(meta, blob);
+}
 async function encodeAndSave(s) {
   const { bmp, p, ts } = s;
   const c = encCanvas || (encCanvas = document.createElement('canvas'));
@@ -343,8 +423,10 @@ async function encodeAndSave(s) {
   const blob = await toBlob(c, type, cfg.quality);
   if (!blob) throw new Error('画像の書き出しに失敗しました');
   const thumb = await makeThumb(bmp, p);
-  const meta = { type: 'photo', ts, name: `IMG_${stamp(ts)}.${png ? 'png' : 'jpg'}`, w: p.ow, h: p.oh, size: blob.size, mime: type, thumb };
-  return DB.add(meta, blob);
+  const meta = { type: 'photo', ts, fav: false, name: `${fileBase('IMG')}${stamp(ts)}.${png ? 'png' : 'jpg'}`, w: p.ow, h: p.oh, size: blob.size, mime: type, thumb };
+  const saved = await DB.add(meta, blob);
+  if (cfg.enhance) { try { await saveEnhanced(c, ts); } catch (e) { toast('補正コピーの保存に失敗しました'); } }
+  return saved;
 }
 // 保存キュー(1本ずつ処理しメモリ消費を抑える)
 const encQ = []; let encBusy = false, pending = 0;
@@ -363,21 +445,38 @@ async function pump() {
 }
 function setThumb(meta) {
   const img = $('#thumb'); if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
-  const u = URL.createObjectURL(meta.thumb); img.dataset.url = u; img.src = u; $('#btn-gallery').classList.add('has');
+  const u = URL.createObjectURL(meta.thumb); img.dataset.url = u; img.src = u; const g = $('#btn-gallery'); g.classList.add('has');
+  if (!reduceMotion()) { g.classList.remove('pop'); void g.offsetWidth; g.classList.add('pop'); }
 }
-function flashFx() { if (!cfg.flash) return; const f = $('#flashfx'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+function flashFx() {
+  const sh = $('#shutter'); sh.classList.remove('pop'); void sh.offsetWidth; sh.classList.add('pop');
+  if (cfg.flash) { const f = $('#flashfx'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+  flyToThumb();
+}
+let lastFly = 0;
+function flyToThumb() {
+  const now = performance.now(); if (reduceMotion() || now - lastFly < 380 || !video.videoWidth) return; lastFly = now;
+  const vr = viewport.getBoundingClientRect(), tr = $('#btn-gallery').getBoundingClientRect();
+  const c = document.createElement('canvas'); c.width = 260; c.height = Math.max(1, Math.round(260 * vr.height / vr.width)); c.className = 'fly';
+  try { c.getContext('2d').drawImage(video, 0, 0, c.width, c.height); } catch (_) {}
+  c.style.cssText = `left:${vr.left}px;top:${vr.top}px;width:${vr.width}px;height:${vr.height}px;border-radius:22px`;
+  document.body.appendChild(c);
+  const dx = tr.left + tr.width / 2 - (vr.left + vr.width / 2), dy = tr.top + tr.height / 2 - (vr.top + vr.height / 2), k = tr.width / vr.width;
+  const a = c.animate([{ transform: 'none', opacity: 1 }, { transform: `translate(${dx * .6}px,${dy * .6 - 30}px) scale(${Math.max(k * 2.2, .35)})`, opacity: .9, offset: .55 }, { transform: `translate(${dx}px,${dy}px) scale(${k})`, opacity: .15, borderRadius: '40px' }], { duration: 520, easing: 'cubic-bezier(.4,0,.2,1)' });
+  a.onfinish = a.oncancel = () => c.remove();
+}
 
 async function shootOnce() {
   if (!stream || !video.videoWidth) return;
-  try { const s = await snapshot(); flashFx(); enqueue(s); }
+  try { if (cfg.steady) await waitSteady(); const s = await snapshot(); flashFx(); enqueue(s); }
   catch (e) { toast('撮影に失敗しました'); }
 }
 async function shootWithTimer() {
   if (countdownTimer) { cancelCountdown(); return; }
   if (!cfg.timer) return shootOnce();
-  let n = cfg.timer; const cd = $('#countdown'); cd.hidden = false; cd.textContent = n;
+  let n = cfg.timer; const cd = $('#countdown'); cd.hidden = false; cd.innerHTML = `<span>${n}</span>`;
   countdownTimer = setInterval(() => {
-    n--; if (n <= 0) { cancelCountdown(); shootOnce(); } else cd.textContent = n;
+    n--; if (n <= 0) { cancelCountdown(); shootOnce(); } else cd.innerHTML = `<span>${n}</span>`;
   }, 1000);
 }
 function cancelCountdown() { clearInterval(countdownTimer); countdownTimer = null; $('#countdown').hidden = true; }
@@ -389,13 +488,18 @@ async function burstLoop() {
   while (burstRunning && n < cfg.burstMax && stream) {
     while (encQ.length >= 3 && burstRunning) await sleep(15);
     if (!burstRunning) break;
-    try { enqueue(await snapshot()); n++; $('#burst-n').textContent = n; flashFx(); } catch (_) {}
+    try { enqueue(await snapshot()); n++; $('#burst-n').textContent = n; chip.classList.remove('bump'); void chip.offsetWidth; chip.classList.add('bump'); flashFx(); } catch (_) {}
     await sleep(Math.max(Number(cfg.burstInterval), 0) || 0);
   }
   burstRunning = false; app.classList.remove('bursting');
   setTimeout(() => { if (!burstRunning) chip.hidden = true; }, 1200);
 }
 
+function triggerShutter() {
+  if (isVideoMode()) return toggleRecord();
+  if (cfg.burstMode) return burstRunning ? (burstRunning = false) : burstLoop();
+  return shootWithTimer();
+}
 /* ---------- シャッターボタン ---------- */
 (() => {
   const sh = $('#shutter'); let holdT = null, held = false, down = false;
@@ -407,9 +511,7 @@ async function burstLoop() {
   const up = () => {
     if (!down) return; down = false; clearTimeout(holdT);
     if (held) { burstRunning = false; return; }
-    if (isVideoMode()) return toggleRecord();
-    if (cfg.burstMode) return burstRunning ? (burstRunning = false) : burstLoop();
-    shootWithTimer();
+    triggerShutter();
   };
   sh.addEventListener('pointerup', up);
   sh.addEventListener('pointercancel', () => { down = false; clearTimeout(holdT); if (held) burstRunning = false; });
@@ -455,7 +557,7 @@ async function finalizeRecord() {
     let thumb = null;
     if (recThumb) { thumb = await makeThumb(recThumb.bmp, recThumb.p); if (recThumb.bmp.close) recThumb.bmp.close(); }
     const ts = recStart;
-    const meta = { type: 'video', ts, name: `VID_${stamp(ts)}.${ext}`, w: s.width || video.videoWidth, h: s.height || video.videoHeight, size: blob.size, mime: type, dur, thumb: thumb || new Blob([], { type: 'image/jpeg' }) };
+    const meta = { type: 'video', ts, fav: false, name: `${fileBase('VID')}${stamp(ts)}.${ext}`, w: s.width || video.videoWidth, h: s.height || video.videoHeight, size: blob.size, mime: type, dur, thumb: thumb || new Blob([], { type: 'image/jpeg' }) };
     setThumb(await DB.add(meta, blob));
     toast(`ビデオを保存しました(${fmtDur(dur)} / ${fmtBytes(blob.size)})`);
   } catch (e) { toast('ビデオの保存に失敗: ' + (e.name === 'QuotaExceededError' ? '容量不足' : e.message)); }
@@ -469,12 +571,24 @@ function syncUI() {
   $('#btn-burst').classList.toggle('on', cfg.burstMode);
   $('#btn-burst').hidden = isVideoMode();
   const tm = $('#btn-timer'); tm.classList.toggle('on', cfg.timer > 0); tm.hidden = isVideoMode();
-  tm.querySelector('use').setAttribute('href', cfg.timer ? '#i-timer' : '#i-timer-off');
+  tm.querySelector('.ms').className = 'ms ' + (cfg.timer ? 'i-timer' : 'i-timer-off');
   $('#timer-sub').textContent = cfg.timer ? cfg.timer : '';
   $('#btn-grid').classList.toggle('on', cfg.grid); $('#gridlines').hidden = !cfg.grid;
   $('#btn-level').classList.toggle('on', cfg.level); $('#level').hidden = !cfg.level;
+  $('#btn-enh').classList.toggle('on', cfg.enhance);
+  $('#btn-dim').classList.toggle('on', cfg.dim > 0); $('#dim').style.opacity = cfg.dim;
+  document.documentElement.classList.toggle('noanim', !cfg.anim);
+  moveInd();
   updateResChip();
 }
+function moveInd() {
+  const sel = $('#modes .mode.sel'), ind = $('#modes .ind'); if (!sel) return;
+  ind.style.width = sel.offsetWidth + 'px'; ind.style.height = sel.offsetHeight + 'px';
+  ind.style.transform = `translate(${sel.offsetLeft}px,${sel.offsetTop}px)`;
+}
+window.addEventListener('resize', () => setTimeout(moveInd, 50));
+window.addEventListener('orientationchange', () => setTimeout(moveInd, 350));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveInd);
 $$('#modes .mode').forEach(b => b.onclick = async () => {
   if (recording || burstRunning) return;
   const prevVideo = isVideoMode(); cfg.mode = b.dataset.mode; saveCfg(); syncUI(); layout();
@@ -482,32 +596,57 @@ $$('#modes .mode').forEach(b => b.onclick = async () => {
 });
 $('#btn-burst').onclick = () => { cfg.burstMode = !cfg.burstMode; saveCfg(); syncUI(); toast(cfg.burstMode ? '連写モード: シャッターで開始/停止' : '連写モードOFF(シャッター長押しで連写)'); };
 $('#btn-timer').onclick = () => { cfg.timer = { 0: 3, 3: 10, 10: 0 }[cfg.timer] || 0; saveCfg(); syncUI(); };
-$('#btn-flip').onclick = async () => { if (recording) return; cfg.facing = cfg.facing === 'user' ? 'environment' : 'user'; zoom = 1; fx = fy = .5; saveCfg(); await startCamera(); };
+let flipRot = 0;
+$('#btn-flip').onclick = async () => { if (recording) return; flipRot += 180; $('#btn-flip .ms').style.transform = `rotate(${flipRot}deg)`; cfg.facing = cfg.facing === 'user' ? 'environment' : 'user'; zoom = 1; fx = fy = .5; saveCfg(); await startCamera(); };
 $('#btn-grid').onclick = () => { cfg.grid = !cfg.grid; saveCfg(); syncUI(); };
 $('#btn-level').onclick = () => toggleLevel(!cfg.level);
+$('#btn-enh').onclick = () => { cfg.enhance = !cfg.enhance; saveCfg(); syncUI(); syncSettings(); toast(cfg.enhance ? '資料補正コピーを同時保存します(元画像はそのまま)' : '資料補正コピーをOFFにしました'); };
+$('#btn-dim').onclick = () => { cfg.dim = { 0: .35, .35: .6, .6: 0 }[cfg.dim] || 0; saveCfg(); syncUI(); syncSettings(); };
 $('#btn-retry').onclick = startCamera;
 
 /* =====================================================================
    水準器(加速度センサー)  真上撮影=十字 / 立てた状態=水平線
    ===================================================================== */
-const LV = { x: 0, y: 0, z: 9.8, on: false, raf: 0 };
+const LV = { x: 0, y: 0, z: 9.8, jit: 9, on: false, raf: 0, perm: false };
+async function ensureMotion() {
+  if (LV.perm) return true;
+  try {
+    if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
+      if (await DeviceMotionEvent.requestPermission() !== 'granted') { toast('モーションセンサーの許可が必要です'); return false; }
+    }
+  } catch (e) { toast('モーションセンサーを有効にできません'); return false; }
+  LV.perm = true; return true;
+}
+function syncMotion() {
+  const need = cfg.level || cfg.steady;
+  if (need && !LV.on) { window.addEventListener('devicemotion', onMotion); LV.on = true; }
+  if (!need && LV.on) { window.removeEventListener('devicemotion', onMotion); LV.on = false; }
+  cancelAnimationFrame(LV.raf); if (cfg.level) renderLevel();
+}
 async function toggleLevel(on) {
-  if (on) {
-    try {
-      if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
-        const r = await DeviceMotionEvent.requestPermission();
-        if (r !== 'granted') { toast('モーションセンサーの許可が必要です'); on = false; }
-      }
-    } catch (e) { toast('水準器を有効にできません'); on = false; }
-  }
-  cfg.level = on; saveCfg(); syncUI(); syncSettings();
-  if (on && !LV.on) { window.addEventListener('devicemotion', onMotion); LV.on = true; renderLevel(); }
-  if (!on && LV.on) { window.removeEventListener('devicemotion', onMotion); LV.on = false; cancelAnimationFrame(LV.raf); }
+  if (on && !(await ensureMotion())) on = false;
+  cfg.level = on; saveCfg(); syncUI(); syncSettings(); syncMotion();
+}
+async function toggleSteady(on) {
+  if (on && !(await ensureMotion())) on = false;
+  cfg.steady = on; saveCfg(); syncSettings(); syncMotion();
 }
 function onMotion(e) {
   const a = e.accelerationIncludingGravity; if (!a || a.x == null) return;
-  const k = IOS ? -1 : 1, s = .25;     // iOSは符号が仕様と逆 / ローパスで安定化
-  LV.x += (a.x * k - LV.x) * s; LV.y += (a.y * k - LV.y) * s; LV.z += (a.z * k - LV.z) * s;
+  const k = IOS ? -1 : 1, f = .25;     // iOSは符号が仕様と逆 / ローパスで安定化
+  const nx = a.x * k, ny = a.y * k, nz = a.z * k;
+  LV.jit += (Math.hypot(nx - LV.x, ny - LV.y, nz - LV.z) - LV.jit) * .3;   // 揺れ量(小さいほど静止)
+  LV.x += (nx - LV.x) * f; LV.y += (ny - LV.y) * f; LV.z += (nz - LV.z) * f;
+}
+// 端末の揺れが収まるまで待つ(最大1.5秒)
+async function waitSteady() {
+  if (!LV.on) return;
+  const t0 = performance.now(); let calm = 0;
+  while (performance.now() - t0 < 1500) {
+    calm = LV.jit < .12 ? calm + 1 : 0;
+    if (calm >= 4) return;
+    await sleep(30);
+  }
 }
 function renderLevel() {
   const g = Math.hypot(LV.x, LV.y, LV.z) || 1;
@@ -525,7 +664,7 @@ function renderLevel() {
     $('#lv-line').style.transform = `rotate(${phi}deg)`; ok = Math.abs(phi) < 1;
   }
   $('#level').classList.toggle('ok', ok);
-  LV.raf = requestAnimationFrame(renderLevel);
+  if (cfg.level) LV.raf = requestAnimationFrame(renderLevel);
 }
 
 /* =====================================================================
@@ -533,7 +672,7 @@ function renderLevel() {
    ===================================================================== */
 const gallery = $('#gallery'), viewer = $('#viewer');
 let gItems = [], gFilter = 'all', gSel = new Set(), gSelecting = false, gUrls = [];
-const visibleItems = () => gItems.filter(i => gFilter === 'all' || i.type === gFilter);
+const visibleItems = () => gItems.filter(i => gFilter === 'all' ? true : gFilter === 'fav' ? !!i.fav : i.type === gFilter);
 
 async function openGallery() { show(gallery); await refreshGallery(); }
 async function refreshGallery() {
@@ -547,10 +686,11 @@ function renderGallery() {
   $('#g-empty').hidden = list.length > 0;
   const frag = document.createDocumentFragment();
   list.forEach((it, idx) => {
-    const c = document.createElement('button'); c.className = 'cell' + (gSel.has(it.id) ? ' sel' : '');
+    const c = document.createElement('button'); c.className = 'cell' + (gSel.has(it.id) ? ' sel' : ''); c.style.setProperty('--i', Math.min(idx, 24));
     const img = new Image(); if (it.thumb && it.thumb.size) { const u = URL.createObjectURL(it.thumb); gUrls.push(u); img.src = u; } img.alt = ''; c.appendChild(img);
-    if (it.type === 'video') { const d = document.createElement('span'); d.className = 'dur'; d.innerHTML = '<svg class="ic"><use href="#i-play"/></svg>' + fmtDur(it.dur || 0); c.appendChild(d); }
-    const ck = document.createElement('span'); ck.className = 'ck'; ck.innerHTML = '<svg class="ic"><use href="#i-check"/></svg>'; c.appendChild(ck);
+    if (it.type === 'video') { const d = document.createElement('span'); d.className = 'dur'; d.innerHTML = '<span class="ms i-play-arrow"></span>' + fmtDur(it.dur || 0); c.appendChild(d); }
+    if (it.fav) { const f = document.createElement('span'); f.className = 'ms i-star fv'; c.appendChild(f); }
+    const ck = document.createElement('span'); ck.className = 'ck'; ck.innerHTML = '<span class="ms i-check"></span>'; c.appendChild(ck);
     c.onclick = () => gSelecting ? toggleSel(it.id, c) : openViewer(idx);
     frag.appendChild(c);
   });
@@ -560,9 +700,10 @@ function renderGallery() {
 function toggleSel(id, cell) { gSel.has(id) ? gSel.delete(id) : gSel.add(id); cell.classList.toggle('sel', gSel.has(id)); updateSelBar(); }
 function updateSelBar() {
   $('#g-actions').hidden = !gSelecting; $('#g-count').textContent = `${gSel.size}件選択`;
-  $('#g-select').textContent = gSelecting ? '完了' : '選択';
+  $('#g-select-t').textContent = gSelecting ? '完了' : '選択';
+  $('#g-total').textContent = `${visibleItems().length}件`;
   $('#g-title').textContent = gSelecting ? '項目を選択' : 'ギャラリー';
-  ['#g-share', '#g-del'].forEach(s => $(s).disabled = gSel.size === 0);
+  ['#g-share', '#g-del', '#g-fav', '#g-zip'].forEach(s => $(s).disabled = gSel.size === 0);
 }
 $('#btn-gallery').onclick = openGallery;
 $('#g-close').onclick = () => { hide(gallery); gSelecting = false; gSel.clear(); gUrls.forEach(u => URL.revokeObjectURL(u)); gUrls = []; refreshLastThumb(); };
@@ -570,6 +711,47 @@ $('#g-select').onclick = () => { gSelecting = !gSelecting; if (!gSelecting) gSel
 $('#g-all').onclick = () => { visibleItems().forEach(i => gSel.add(i.id)); renderGallery(); };
 $$('#g-filters .fchip').forEach(b => b.onclick = () => { gFilter = b.dataset.f; $$('#g-filters .fchip').forEach(x => x.classList.toggle('sel', x === b)); renderGallery(); });
 $('#g-share').onclick = () => shareRecs(gItems.filter(i => gSel.has(i.id)));
+$('#g-fav').onclick = async () => {
+  const recs = gItems.filter(i => gSel.has(i.id)); if (!recs.length) return;
+  const to = !recs.every(r => r.fav);
+  for (const r of recs) { r.fav = to; await DB.put(r); }
+  renderGallery(); toast(to ? `${recs.length}件をお気に入りに追加` : `${recs.length}件のお気に入りを解除`);
+};
+$('#g-zip').onclick = async () => {
+  const recs = gItems.filter(i => gSel.has(i.id)); if (!recs.length) return;
+  if (recs.reduce((a, r) => a + r.size, 0) > 800e6) return toast('合計が大きすぎます。800MB以下ずつに分けてください', 4000);
+  try {
+    toast('ZIPを作成中…', 120000);
+    const blob = await buildZip(recs, (i, n) => toast(`ZIPを作成中… ${i}/${n}`, 120000));
+    toast('ZIPを作成しました');
+    await shareFiles([new File([blob], `silentcam_${stamp(Date.now()).slice(0, 15)}.zip`, { type: 'application/zip' })]);
+  } catch (e) { toast('ZIP作成に失敗しました: ' + (e.message || e), 4000); }
+};
+
+/* ---------- ZIP作成(無圧縮・ストア形式。JPEG/動画はもともと圧縮済みのため画質への影響なし) ---------- */
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function buildZip(recs, onProgress) {
+  const enc = new TextEncoder(), parts = [], central = []; let offset = 0, csize = 0;
+  const d = new Date(), dt = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dd = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  for (let i = 0; i < recs.length; i++) {
+    const r = recs[i], u8 = new Uint8Array(await (await DB.blob(r.id)).arrayBuffer()), name = enc.encode(r.name), crc = crc32(u8);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, dt, true); lh.setUint16(12, dd, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, u8.length, true); lh.setUint32(22, u8.length, true); lh.setUint16(26, name.length, true);
+    parts.push(lh.buffer, name, u8);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, dt, true); ch.setUint16(14, dd, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, u8.length, true); ch.setUint32(24, u8.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(ch.buffer, name); csize += 46 + name.length;
+    offset += 30 + name.length + u8.length;
+    if (onProgress) onProgress(i + 1, recs.length);
+    await sleep(0);
+  }
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, recs.length, true); end.setUint16(10, recs.length, true); end.setUint32(12, csize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
 $('#g-del').onclick = async () => {
   const ids = [...gSel]; if (!ids.length) return;
   if (await dialog({ title: `${ids.length}件を削除`, text: 'この端末内の撮影データから完全に削除します。写真Appなどに書き出したコピーは消えません。', ok: '削除' })) {
@@ -588,7 +770,9 @@ async function refreshLastThumb() {
 async function recToFile(r) { return new File([await DB.blob(r.id)], r.name, { type: r.mime }); }
 async function shareRecs(recs) {
   if (!recs.length) return;
-  const files = await Promise.all(recs.map(recToFile));
+  return shareFiles(await Promise.all(recs.map(recToFile)));
+}
+async function shareFiles(files) {
   if (navigator.canShare && navigator.canShare({ files })) {
     try { await navigator.share({ files }); return; }
     catch (e) {
@@ -614,20 +798,20 @@ async function openViewer(idx) {
   vList = visibleItems(); vIdx = clamp(idx, 0, vList.length - 1);
   show(viewer); await loadViewer();
 }
-async function loadViewer() {
+async function loadViewer(dir = 0) {
   const it = vList[vIdx]; if (!it) { closeViewer(); return; }
-  $('#v-title').textContent = it.name; $('#v-infobox').hidden = true;
+  $('#v-title').textContent = it.name; $('#v-infobox').classList.remove('show'); $('#v-fav').classList.toggle('on', !!it.fav);
   $('#v-prev').hidden = vIdx === 0; $('#v-next').hidden = vIdx >= vList.length - 1;
   if (vUrl) URL.revokeObjectURL(vUrl);
   const blob = await DB.blob(it.id); vUrl = URL.createObjectURL(blob);
-  const st = $('#vstage'); st.innerHTML = ''; V.s = 1; V.x = V.y = 0;
+  const st = $('#vstage'); st.innerHTML = ''; V.s = 1; V.x = V.y = 0; st.className = dir < 0 ? 'l' : dir > 0 ? 'r' : '';
   let el;
   if (it.type === 'video') { el = document.createElement('video'); el.controls = true; el.playsInline = true; el.src = vUrl; }
   else { el = new Image(); el.src = vUrl; el.draggable = false; }
   st.appendChild(el);
 }
 function closeViewer() { hide(viewer); $('#vstage').innerHTML = ''; if (vUrl) { URL.revokeObjectURL(vUrl); vUrl = null; } refreshGallery(); }
-const vStep = d => { const n = vIdx + d; if (n >= 0 && n < vList.length) { vIdx = n; loadViewer(); } };
+const vStep = d => { const n = vIdx + d; if (n >= 0 && n < vList.length) { vIdx = n; loadViewer(d); } };
 $('#v-close').onclick = closeViewer; $('#v-prev').onclick = () => vStep(-1); $('#v-next').onclick = () => vStep(1);
 $('#v-share').onclick = () => shareRecs([vList[vIdx]]);
 $('#v-download').onclick = async () => downloadFiles([await recToFile(vList[vIdx])]);
@@ -642,8 +826,9 @@ $('#v-del').onclick = async () => {
 $('#v-info').onclick = () => {
   const b = $('#v-infobox'), it = vList[vIdx];
   b.innerHTML = `${it.name}<br>${it.w} × ${it.h} px(${(it.w * it.h / 1e6).toFixed(1)} MP)・${fmtBytes(it.size)}<br>${new Date(it.ts).toLocaleString('ja-JP')}${it.type === 'video' ? '<br>長さ ' + fmtDur(it.dur || 0) : ''}`;
-  b.hidden = !b.hidden;
+  b.classList.toggle('show');
 };
+$('#v-fav').onclick = async () => { const it = vList[vIdx]; it.fav = !it.fav; await DB.put(it); $('#v-fav').classList.toggle('on', it.fav); toast(it.fav ? 'お気に入りに追加しました' : 'お気に入りを解除しました', 1500); };
 document.addEventListener('keydown', e => { if (viewer.classList.contains('open')) { if (e.key === 'ArrowLeft') vStep(-1); if (e.key === 'ArrowRight') vStep(1); if (e.key === 'Escape') closeViewer(); } });
 (() => {
   const st = $('#vstage'), ptrs = new Map(); let pinch = null, drag = null, lastTap = 0;
@@ -686,6 +871,7 @@ function syncSettings() {
     const k = el.dataset.key;
     if (el.classList.contains('seg')) $$('button', el).forEach(b => b.classList.toggle('sel', b.dataset.v === String(cfg[k])));
     else if (el.type === 'checkbox') el.checked = !!cfg[k];
+    else if (el.type === 'text') { if (document.activeElement !== el) el.value = cfg[k] === 'IMG' ? '' : cfg[k]; }
     else if (el.type === 'range') el.value = cfg[k];
   });
   $('#q-val').textContent = Math.round(cfg.quality * 100);
@@ -693,6 +879,7 @@ function syncSettings() {
 function applyKey(k, v) {
   cfg[k] = v; saveCfg(); syncSettings(); syncUI();
   if (k === 'level') return toggleLevel(v);
+  if (k === 'steady') return toggleSteady(v);
   if (needsRestart.has(k)) { clearTimeout(restartTimer); restartTimer = setTimeout(startCamera, 350); }
 }
 $$('#settings .seg').forEach(seg => $$('button', seg).forEach(b => b.onclick = () => {
@@ -700,6 +887,7 @@ $$('#settings .seg').forEach(seg => $$('button', seg).forEach(b => b.onclick = (
   applyKey(seg.dataset.key, v);
 }));
 $$('#settings input[type=checkbox]').forEach(el => el.onchange = () => applyKey(el.dataset.key, el.checked));
+$$('#settings input[type=text]').forEach(el => el.oninput = () => applyKey(el.dataset.key, el.value.trim() || 'IMG'));
 $$('#settings input[type=range]').forEach(el => el.oninput = () => applyKey(el.dataset.key, parseFloat(el.value)));
 $('#btn-settings').onclick = async () => { syncSettings(); show(settings); updateUsage(); };
 $('#s-close').onclick = () => hide(settings);
@@ -715,6 +903,16 @@ $('#s-wipe').onclick = async () => {
   }
 };
 
+/* ---------- 外部キーボード / Bluetoothリモコン ---------- */
+document.addEventListener('keydown', e => {
+  const t = document.activeElement; if (t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type === 'text'))) return;
+  if ([gallery, viewer, settings, $('#dlg')].some(x => x.classList.contains('open')) || e.repeat || e.metaKey || e.ctrlKey) return;
+  if ([' ', 'Enter', 'ArrowRight', 'PageDown', 'MediaTrackNext', 'AudioVolumeUp'].includes(e.key)) { e.preventDefault(); triggerShutter(); }
+  else if (['+', '=', 'ArrowUp'].includes(e.key)) { e.preventDefault(); setZoom(zoom + .5); }
+  else if (['-', '_', 'ArrowDown'].includes(e.key)) { e.preventDefault(); setZoom(zoom - .5); }
+  else if (e.key === 'g' || e.key === 'G') $('#btn-grid').click();
+});
+
 /* =====================================================================
    起動
    ===================================================================== */
@@ -722,7 +920,10 @@ $('#s-wipe').onclick = async () => {
   syncSettings(); syncUI();
   try { await DB.open(); await refreshLastThumb(); } catch (e) { toast('保存領域を開けません(プライベートブラウズ中?)'); }
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (_) {}
-  if (cfg.level) { cfg.level = false; toggleLevel(false); }   // センサー許可はユーザー操作が必要なので起動時はOFFに戻す
+  if (cfg.level || cfg.steady) {
+    if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) { cfg.level = cfg.steady = false; saveCfg(); syncUI(); syncSettings(); }   // iPadOSはセンサー許可にユーザー操作が必要なので起動時はOFFに戻す
+    else { LV.perm = true; syncMotion(); }
+  }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   await startCamera();
 })();

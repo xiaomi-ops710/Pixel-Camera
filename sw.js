@@ -1,7 +1,7 @@
 /* 無音カメラ Service Worker — アプリシェルをキャッシュして完全オフライン動作 */
-const CACHE = 'silentcam-v1';
+const CACHE = 'silentcam-v2';
 const SHELL = [
-  './', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest',
+  './', 'index.html', 'styles.css', 'icons.css', 'icons/material-symbols.woff', 'app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png'
 ];
 
