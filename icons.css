@@ -1,6 +1,7 @@
-@font-face{font-family:"Material Symbols Outlined";font-style:normal;font-weight:400;font-display:block;src:url(icons/material-symbols.woff) format("woff")}
-.ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;display:inline-block;line-height:1;text-transform:none;letter-spacing:normal;white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;font-variation-settings:"FILL" 0;transition:font-variation-settings .25s,transform .25s;width:1em;height:1em;overflow:hidden;font-size:26px}
-.ms.fill{font-variation-settings:"FILL" 1}
+@font-face{font-family:"Material Symbols Outlined";font-style:normal;font-weight:400;font-display:block;src:url(icons/ms-outlined.woff) format("woff"),url(icons/ms-outlined.ttf) format("truetype")}
+@font-face{font-family:"Material Symbols Filled";font-style:normal;font-weight:400;font-display:block;src:url(icons/ms-filled.woff) format("woff"),url(icons/ms-filled.ttf) format("truetype")}
+.ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;display:inline-block;line-height:1;text-transform:none;letter-spacing:normal;white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;width:1em;height:1em;overflow:hidden;font-size:26px;font-feature-settings:normal}
+.ms.fill,.on>.ms,.sel>.ms{font-family:"Material Symbols Filled"}
 .i-tune::before{content:"\e429"}
 .i-grid-on::before{content:"\e3ec"}
 .i-straighten::before{content:"\e41c"}

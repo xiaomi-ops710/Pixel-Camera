@@ -58,12 +58,12 @@ Material 3 スタイル + Material Symbols アイコン / iPadのカメラに近
 ```
 index.html / styles.css / app.js   アプリ本体
 sw.js / manifest.webmanifest       PWA(オフライン・インストール)
-icons/                             アプリアイコン + Material Symbols(使用分のみ抽出した6KBのフォント)
+icons/                             アプリアイコン + Material Symbols(使用分のみ抽出した静的フォント。Safari互換のためwoff+ttf、塗り/線の2種)
 icons.css                          アイコン名→文字コード対応
 .github/workflows/pages.yml        GitHub Pages 自動デプロイ
 ```
 
-更新時は `sw.js` の `CACHE` 名(`silentcam-v2`)を変えるとキャッシュが入れ替わります。
+更新時は `sw.js` の `CACHE` 名(`silentcam-v3`)を変えるとキャッシュが入れ替わります。
 
 ## ライセンス
 アイコンは Google の [Material Symbols](https://github.com/google/material-design-icons)(Apache License 2.0)から、使用している分だけを抽出して同梱しています。

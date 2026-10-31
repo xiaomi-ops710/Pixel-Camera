@@ -21,7 +21,6 @@ html,body{height:100%;margin:0;background:#000;color:var(--on-surface);overflow:
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;-webkit-text-size-adjust:100%}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
 .ms.sm{font-size:20px}
-.ms.fill,.on>.ms,.sel>.ms{font-variation-settings:"FILL" 1}
 
 /* ===== アニメーション定義 ===== */
 @keyframes rise{from{opacity:0;transform:translateY(18px) scale(.92)}}
@@ -87,7 +86,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .ib.on{background:var(--primary-container);color:var(--on-primary-container)}
 .ib.sm{width:44px;height:44px}.ib.sm .ms{font-size:22px}
 .ib.flat{background:none;-webkit-backdrop-filter:none;backdrop-filter:none}
-.ib .ms{transition:font-variation-settings .3s,transform .5s var(--ease)}
+.ib .ms{transition:transform .5s var(--ease)}
 .ib .sub{position:absolute;right:8px;bottom:7px;font-size:11px;font-weight:800;color:var(--primary);line-height:1}
 .ripple{position:absolute;border-radius:50%;background:currentColor;opacity:.24;transform:scale(0);pointer-events:none;animation:rip .6s var(--ease-out) forwards}
 .btn,.mode,.fchip,.seg button{position:relative;overflow:hidden}
@@ -205,8 +204,8 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .cell img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s var(--ease)}
 .selecting .cell.sel img{transform:scale(.88);border-radius:12px}
 .cell .dur{position:absolute;right:6px;bottom:6px;padding:2px 7px;border-radius:6px;background:#000a;font-size:12px;font-weight:600;display:flex;align-items:center;gap:2px;color:#fff}
-.cell .dur .ms{font-size:14px;font-variation-settings:"FILL" 1}
-.cell .fv{position:absolute;left:6px;bottom:5px;color:var(--primary);font-size:18px;font-variation-settings:"FILL" 1;text-shadow:0 1px 4px #000}
+.cell .dur .ms{font-size:14px;font-family:"Material Symbols Filled"}
+.cell .fv{position:absolute;left:6px;bottom:5px;color:var(--primary);font-size:18px;font-family:"Material Symbols Filled";text-shadow:0 1px 4px #000}
 .cell .ck{position:absolute;left:8px;top:8px;width:26px;height:26px;border-radius:50%;border:2px solid #fff;background:#0006;display:grid;place-items:center;color:var(--on-primary);transform:scale(0);transition:transform .25s var(--spring),background .2s}
 .selecting .cell .ck{transform:scale(1)}
 .cell.sel .ck{background:var(--primary);border-color:var(--primary)}

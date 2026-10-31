@@ -918,6 +918,7 @@ document.addEventListener('keydown', e => {
    ===================================================================== */
 (async function init() {
   syncSettings(); syncUI();
+  if (document.fonts && document.fonts.load) document.fonts.load('24px "Material Symbols Outlined"', '\ue429').then(f => { if (!f.length) toast('アイコンフォントを読み込めませんでした。ページを再読み込みしてください', 5000); }).catch(() => {});
   try { await DB.open(); await refreshLastThumb(); } catch (e) { toast('保存領域を開けません(プライベートブラウズ中?)'); }
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (_) {}
   if (cfg.level || cfg.steady) {
