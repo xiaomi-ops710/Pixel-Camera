@@ -224,10 +224,17 @@ document.addEventListener('visibilitychange', () => {
 /* ---------- レイアウト(プレビュー枠のアスペクト) ---------- */
 function layout() {
   const vw = video.videoWidth || 4, vh = video.videoHeight || 3;
-  const ar = targetAspect(vw, vh) || vw / vh;
-  const cw = stage.clientWidth - 20, ch = stage.clientHeight - 20;
-  let w = cw, h = cw / ar;
-  if (h > ch) { h = ch; w = ch * ar; }
+  const ta = targetAspect(vw, vh);
+  // 写真(フル)とビデオは画面いっぱいに表示(映像は cover で埋める)。切り出し比率のときは枠内に収める
+  const fill = !ta;
+  viewport.classList.toggle('fill', fill);
+  let w, h;
+  if (fill) { w = stage.clientWidth; h = stage.clientHeight; }
+  else {
+    const cw = stage.clientWidth - 20, ch = stage.clientHeight - 20;
+    w = cw; h = cw / ta;
+    if (h > ch) { h = ch; w = ch * ta; }
+  }
   viewport.style.width = Math.floor(w) + 'px'; viewport.style.height = Math.floor(h) + 'px';
   applyTransform();
 }
@@ -764,7 +771,7 @@ document.addEventListener('keydown', e => {
    ・起動のたびに sw.js を確認(HTTPキャッシュを使わない)
    ・新しい版が見つかったら、撮影中でない時に自動で読み直す(撮影を邪魔しない)
    ===================================================================== */
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v10';
 let pendingReload = false;
 function busyNow() { return recording || burstRunning || AS.on || !!countdownTimer || (editor && editor.classList.contains('open')); }
 function applyPendingReload() {
@@ -810,4 +817,24 @@ function setupUpdates() {
   }
   setupUpdates();
   await startCamera();
+})();
+
+/* 設定: 連続する行を iOS「設定」風のグループ(角丸の面)にまとめる */
+(() => {
+  const panel = $('#settings .panel'); if (!panel) return;
+  let grp = null;
+  [...panel.children].forEach(el => {
+    if (el.classList.contains('row')) {
+      if (!grp) { grp = document.createElement('div'); grp.className = 'grp'; el.before(grp); }
+      grp.appendChild(el);
+    } else grp = null;
+  });
+})();
+
+/* スライダーの青い塗り幅(--p)を値に合わせて更新 */
+(() => {
+  const upd = el => el.style.setProperty('--p', ((el.value - el.min) / ((el.max - el.min) || 1) * 100) + '%');
+  const all = () => document.querySelectorAll('input[type=range]');
+  all().forEach(el => { upd(el); el.addEventListener('input', () => upd(el)); });
+  setInterval(() => all().forEach(upd), 300);   // スクリプトから値が変わった時も追随
 })();

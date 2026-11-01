@@ -2,7 +2,7 @@
    ・アプリ本体(HTML/CSS/JS)は「ネットワーク優先」: オンラインなら毎回サーバーから最新を取得し、
      オフラインの時だけキャッシュを使う。古い版が表示され続ける問題を防ぐ。
    ・Google Fonts(アイコン)と画像類は「キャッシュ優先」(変わらないため)。 */
-const VERSION = 'v8';
+const VERSION = 'v10';
 const CACHE = 'silentcam-shell-' + VERSION;
 const FONTS = 'silentcam-fonts';
 const SHELL = [
