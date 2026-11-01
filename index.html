@@ -44,12 +44,12 @@
     <div id="topbar">
       <button class="ib sm" id="btn-settings" aria-label="設定"><span class="ms i-tune"></span></button>
       <button class="ib sm" id="btn-cap" aria-label="撮影オプション"><span class="ms i-more-horiz"></span></button>
-      <button class="ib sm" id="btn-grid" aria-label="グリッド"><span class="ms i-grid-on"></span></button>
-      <button class="ib sm" id="btn-level" aria-label="水準器"><span class="ms i-straighten"></span></button>
-      <button class="ib sm" id="btn-peak" aria-label="ピント確認"><span class="ms i-center-focus-strong"></span></button>
-      <button class="ib sm" id="btn-enh" aria-label="資料補正コピー"><span class="ms i-auto-fix-high"></span></button>
-      <button class="ib sm" id="btn-dim" aria-label="画面を暗くする"><span class="ms i-brightness-6"></span></button>
-      <span class="chip silent"><span class="ms i-volume-off"></span>無音</span>
+      <button class="ib sm" id="btn-grid" aria-label="グリッド" hidden><span class="ms i-grid-on"></span></button>
+      <button class="ib sm" id="btn-level" aria-label="水準器" hidden><span class="ms i-straighten"></span></button>
+      <button class="ib sm" id="btn-peak" aria-label="ピント確認" hidden><span class="ms i-center-focus-strong"></span></button>
+      <button class="ib sm" id="btn-enh" aria-label="資料補正コピー" hidden><span class="ms i-auto-fix-high"></span></button>
+      <button class="ib sm" id="btn-dim" aria-label="画面を暗くする" hidden><span class="ms i-brightness-6"></span></button>
+      <span class="chip silent" id="chip-silent"><span class="ms i-volume-off"></span>無音</span>
       <span class="chip" id="chip-res">—</span>
       <span class="chip lock" id="chip-lock" hidden><span class="ms i-lock fill"></span>AE/AF</span>
     </div>
@@ -131,12 +131,13 @@
     <div class="ptitle"><b id="g-title-t">すべての写真</b><small id="g-total"></small></div>
     <div class="pgrp r">
       <button class="pbtn" id="g-select">選択</button>
-      <button class="pbtn round" id="g-more" aria-label="表示オプション"><span class="ms i-more-horiz"></span></button>
+      <button class="pbtn round" id="g-more" aria-label="表示オプション"><span class="ms i-filter-list"></span></button>
     </div>
   </header>
   <nav id="g-tabs" class="ptabs">
+    <button class="ptab" data-g="year">年別</button>
+    <button class="ptab" data-g="month">月別</button>
     <button class="ptab sel" data-g="all">すべての写真</button>
-    <button class="ptab" data-g="day">日</button>
   </nav>
   <footer id="g-actions" class="pbottom" hidden>
     <span id="g-count">項目を選択</span>
@@ -250,6 +251,16 @@
       <div class="seg" data-key="burstInterval"><button data-v="0">最速</button><button data-v="200">0.2秒</button><button data-v="500">0.5秒</button><button data-v="1000">1秒</button></div></div>
     <div class="row"><label>最大枚数</label>
       <div class="seg" data-key="burstMax"><button data-v="20">20</button><button data-v="60">60</button><button data-v="150">150</button><button data-v="300">300</button></div></div>
+
+    <h3>上部バーのボタン</h3>
+    <div class="row"><label>撮影オプション(…)</label><input type="checkbox" class="switch" data-top="cap"></div>
+    <div class="row"><label>グリッド</label><input type="checkbox" class="switch" data-top="grid"></div>
+    <div class="row"><label>水準器</label><input type="checkbox" class="switch" data-top="level"></div>
+    <div class="row"><label>ピント確認</label><input type="checkbox" class="switch" data-top="peak"></div>
+    <div class="row"><label>資料補正コピー</label><input type="checkbox" class="switch" data-top="enh"></div>
+    <div class="row"><label>画面の暗さ</label><input type="checkbox" class="switch" data-top="dim"></div>
+    <div class="row"><label>無音マーク</label><input type="checkbox" class="switch" data-top="silent"></div>
+    <div class="row"><label>画質(解像度)の表示</label><input type="checkbox" class="switch" data-top="res"></div>
 
     <h3>表示・操作</h3>
     <div class="row"><label>ピント確認(ピーキング)<small>ピントが合っている輪郭を黄色で表示(上部ボタンでも切替)</small></label><input type="checkbox" class="switch" data-key="peak"></div>

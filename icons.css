@@ -67,3 +67,7 @@
 .i-more-horiz::before{content:"\e5d3"}
 .i-pause::before{content:"\e034"}
 .i-stop::before{content:"\e047"}
+.i-content-copy::before{content:"\e14d"}
+.i-library-add::before{content:"\e03c"}
+.i-slideshow::before{content:"\e41b"}
+.i-filter-list::before{content:"\e152"}

@@ -29,6 +29,7 @@ const DEF = {
   timer: 0, burstMode: false, facing: 'environment', mode: 'photo',
   prefix: 'IMG', enhance: false, enhMode: 'levels', steady: false, dim: 0, anim: true,
   seq: false, seqN: 1, peak: false, gsort: 'desc',
+  topBar: { cap: true, grid: false, level: false, peak: false, enh: false, dim: false, silent: true, res: true },
   aspect: 'full', auto: 'off', autoSens: 'mid', autoInt: 5, autoMax: 30, histo: false, zebra: false, dtap: false, autoScan: false, scanFilter: 'shadow'
 };
 let cfg = { ...DEF };
@@ -600,9 +601,16 @@ async function finalizeRecord() {
   recThumb = null;
 }
 
+/* ---------- モード切替のアニメーション(プレビューのぼかし→鮮明化、シャッターの変形、ラベルの跳ね) ---------- */
+function playModeAnim() {
+  const a = $('#app'); a.classList.remove('mode-anim'); void a.offsetWidth; a.classList.add('mode-anim');
+  clearTimeout(playModeAnim.t); playModeAnim.t = setTimeout(() => a.classList.remove('mode-anim'), 950);
+}
+
 /* ---------- 各ボタン ---------- */
 function syncUI() {
   app.dataset.mode = cfg.mode;
+  syncTopBar();
   $$('#modes .mode').forEach(b => b.classList.toggle('sel', b.dataset.mode === cfg.mode));
   $('#btn-burst').classList.toggle('on', cfg.burstMode);
   $('#btn-burst').hidden = isVideoMode();
@@ -628,12 +636,13 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(moveInd);
 $$('#modes .mode').forEach(b => b.onclick = async () => {
   if (recording || burstRunning) return;
   const prevVideo = isVideoMode(); cfg.mode = b.dataset.mode; saveCfg(); syncUI(); layout();
+  if (!reduceMotion()) playModeAnim();
   if (prevVideo !== isVideoMode()) await startCamera();
 });
 $('#btn-burst').onclick = () => { cfg.burstMode = !cfg.burstMode; saveCfg(); syncUI(); toast(cfg.burstMode ? '連写モード: シャッターで開始/停止' : '連写モードOFF(シャッター長押しで連写)'); };
 $('#btn-timer').onclick = () => { cfg.timer = { 0: 3, 3: 10, 10: 0 }[cfg.timer] || 0; saveCfg(); syncUI(); };
 let flipRot = 0;
-$('#btn-flip').onclick = async () => { if (recording) return; flipRot += 180; $('#btn-flip .ms').style.transform = `rotate(${flipRot}deg)`; cfg.facing = cfg.facing === 'user' ? 'environment' : 'user'; zoom = 1; fx = fy = .5; saveCfg(); await startCamera(); };
+$('#btn-flip').onclick = async () => { if (recording) return; flipRot += 180; $('#btn-flip .ms').style.transform = `rotate(${flipRot}deg)`; cfg.facing = cfg.facing === 'user' ? 'environment' : 'user'; zoom = 1; fx = fy = .5; saveCfg(); animateFlip(); await startCamera(); };
 $('#btn-grid').onclick = () => { cfg.grid = !cfg.grid; saveCfg(); syncUI(); };
 $('#btn-level').onclick = () => toggleLevel(!cfg.level);
 $('#btn-peak').onclick = () => { cfg.peak = !cfg.peak; saveCfg(); syncUI(); syncSettings(); };
@@ -739,7 +748,7 @@ $$('#settings .seg').forEach(seg => $$('button', seg).forEach(b => b.onclick = (
   const raw = b.dataset.v, v = /^-?\d+(\.\d+)?$/.test(raw) && !['videoRes'].includes(seg.dataset.key) ? Number(raw) : raw;
   applyKey(seg.dataset.key, v);
 }));
-$$('#settings input[type=checkbox]').forEach(el => el.onchange = () => applyKey(el.dataset.key, el.checked));
+$$('#settings input[type=checkbox][data-key]').forEach(el => el.onchange = () => applyKey(el.dataset.key, el.checked));
 $$('#settings input[type=text]').forEach(el => el.oninput = () => applyKey(el.dataset.key, el.dataset.key === 'seqN' ? Math.max(1, parseInt(el.value, 10) || 1) : (el.value.trim() || 'IMG')));
 $$('#settings input[type=range]').forEach(el => el.oninput = () => applyKey(el.dataset.key, parseFloat(el.value)));
 $('#btn-settings').onclick = async () => { syncSettings(); show(settings); updateUsage(); };
@@ -771,7 +780,7 @@ document.addEventListener('keydown', e => {
    ・起動のたびに sw.js を確認(HTTPキャッシュを使わない)
    ・新しい版が見つかったら、撮影中でない時に自動で読み直す(撮影を邪魔しない)
    ===================================================================== */
-const APP_VERSION = 'v10';
+const APP_VERSION = 'v15';
 let pendingReload = false;
 function busyNow() { return recording || burstRunning || AS.on || !!countdownTimer || (editor && editor.classList.contains('open')); }
 function applyPendingReload() {
@@ -838,3 +847,32 @@ function setupUpdates() {
   all().forEach(el => { upd(el); el.addEventListener('input', () => upd(el)); });
   setInterval(() => all().forEach(upd), 300);   // スクリプトから値が変わった時も追随
 })();
+
+/* ---------- 上部バーのボタンを設定で選択(表示・非表示) ---------- */
+function topItems() { return { cap: '#btn-cap', grid: '#btn-grid', level: '#btn-level', peak: '#btn-peak', enh: '#btn-enh', dim: '#btn-dim', silent: '#chip-silent', res: '#chip-res' }; }
+function topBarOf() { return { ...DEF.topBar, ...(cfg.topBar || {}) }; }
+function syncTopBar() {
+  const tb = topBarOf();
+  const items = topItems();
+  for (const k in items) {
+    const el = $(items[k]); if (!el) continue;
+    const hide = !tb[k];
+    if (el.hidden !== hide) el.hidden = hide;   // 状態が変わった時だけ切り替え(出現アニメーションが再生される)
+  }
+  $$('#settings [data-top]').forEach(cb => { cb.checked = !!tb[cb.dataset.top]; });
+}
+// 設定の切替は委任で受ける(行の並べ替え・再生成があっても確実に反応する)
+$('#settings').addEventListener('change', e => {
+  const cb = e.target.closest ? e.target.closest('[data-top]') : null; if (!cb) return;
+  cfg.topBar = { ...topBarOf(), [cb.dataset.top]: cb.checked }; saveCfg(); syncTopBar();
+});
+
+/* ---------- カメラ反転のアニメーション(Y軸回転+ぼかし) ---------- */
+function animateFlip() {
+  if (reduceMotion() || !viewport.animate) return;
+  viewport.animate([
+    { transform: 'perspective(1400px) rotateY(0deg)', opacity: 1, filter: 'blur(0px)' },
+    { transform: 'perspective(1400px) rotateY(90deg) scale(.94)', opacity: .15, filter: 'blur(12px)', offset: .5 },
+    { transform: 'perspective(1400px) rotateY(0deg)', opacity: 1, filter: 'blur(0px)' }
+  ], { duration: 700, easing: 'cubic-bezier(.2,0,0,1)' });
+}

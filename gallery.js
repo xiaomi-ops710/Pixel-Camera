@@ -97,11 +97,15 @@ async function refreshGallery() {
   gItems = (await DB.list()).sort((a, b) => cfg.gsort === 'asc' ? a.ts - b.ts : b.ts - a.ts);
   renderGallery();
 }
-function groupByDay(list) {
+// 年別 / 月別 / すべての写真(=日ごとの見出し)でグループ化
+function groupBy(list, mode) {
   const out = [];
   for (const it of list) {
-    const k = dayKey(it.ts), last = out[out.length - 1];
-    if (last && last.k === k) last.items.push(it); else out.push({ k, label: dayLabel(it.ts), items: [it] });
+    const d = new Date(it.ts);
+    const k = mode === 'year' ? d.getFullYear() : mode === 'month' ? d.getFullYear() * 100 + d.getMonth() + 1 : dayKey(it.ts);
+    const label = mode === 'year' ? `${d.getFullYear()}年` : mode === 'month' ? `${d.getFullYear()}年${d.getMonth() + 1}月` : dayLabel(it.ts);
+    const last = out[out.length - 1];
+    if (last && last.k === k) last.items.push(it); else out.push({ k, label, items: [it] });
   }
   return out;
 }
@@ -128,7 +132,7 @@ function renderGallery() {
   const grid = $('#g-grid'); grid.innerHTML = ''; grid.classList.toggle('selecting', gSelecting);
   const list = visibleItems();
   $('#g-empty').hidden = list.length > 0;
-  const groups = G.view === 'day' ? groupByDay(list) : [{ label: null, items: list }];
+  const groups = groupBy(list, G.view);
   const frag = document.createDocumentFragment(); let idx = 0;
   for (const g of groups) {
     if (g.label) { const h = document.createElement('div'); h.className = 'g-head'; h.textContent = g.label; frag.appendChild(h); }

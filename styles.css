@@ -10,8 +10,8 @@
   --glass:rgba(34,30,20,.66);
   --glass-solid:rgba(30,26,17,.84);   /* iPad向け: 小さな要素は blur を使わず負荷を下げる */
   --ctl:136px; --ctlh:218px;
-  --sat:env(safe-area-inset-top); --sar:env(safe-area-inset-right);
-  --sab:env(safe-area-inset-bottom); --sal:env(safe-area-inset-left);
+  /* iPad は安全領域を使わない(viewport-fit=cover の下端インセットが黒帯になるため)。狭い画面のみ下で env() を使う */
+  --sat:0px; --sar:0px; --sab:0px; --sal:0px;
   /* M3 motion */
   --ease:cubic-bezier(.2,0,0,1); --ease-out:cubic-bezier(0,0,0,1); --spring:cubic-bezier(.34,1.56,.64,1);
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",Roboto,system-ui,sans-serif;
@@ -484,3 +484,47 @@ input[type=range]:active::-webkit-slider-thumb{transform:scaleX(1.12)}
 input[type=range]::-moz-range-track{height:8px;border-radius:4px;background:#58585D}
 input[type=range]::-moz-range-progress{height:8px;border-radius:4px;background:#3D8BFF}
 input[type=range]::-moz-range-thumb{width:34px;height:26px;border-radius:13px;background:#fff;border:0;box-shadow:0 2px 7px rgba(0,0,0,.35)}
+
+@media (max-width:699px){:root{--sat:env(safe-area-inset-top);--sar:env(safe-area-inset-right);--sab:env(safe-area-inset-bottom);--sal:env(safe-area-inset-left)}}
+
+/* ===== ギャラリー: 写真Appに近いヘッダー(左寄せの大見出し+項目数) ===== */
+#g-top{grid-template-columns:auto 1fr auto;gap:10px}
+#g-top .ptitle{align-items:flex-start;text-align:left;padding-left:6px;min-width:0}
+#g-top .ptitle b{font-size:30px;font-weight:700;letter-spacing:.005em;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+#g-top .ptitle small{font-size:14px;color:#8E8E93;margin-top:1px}
+#g-tabs .ptab{min-width:0}
+
+/* ===== モード切替・撮影ボタン(位置を固定、iOS風の動き) ===== */
+/* 写真/ビデオで消える要素は display:none ではなく透明化し、シャッター位置がずれないようにする */
+#btn-burst[hidden],#btn-timer[hidden]{display:grid!important;visibility:hidden;pointer-events:none}
+#btn-grid[hidden],#btn-level[hidden],#btn-peak[hidden],#btn-enh[hidden],#btn-dim[hidden]{display:none!important}
+#app.mode-anim #viewport{animation:modeIn .6s var(--ease) both}
+@keyframes modeIn{from{opacity:.2;transform:scale(1.04);filter:blur(14px)}to{opacity:1;transform:none;filter:none}}
+#app.mode-anim #shutter{animation:shutSpin .65s var(--spring)}
+@keyframes shutSpin{0%{transform:scale(.8) rotate(-50deg)}55%{transform:scale(1.07) rotate(8deg)}100%{transform:none}}
+#app.mode-anim #shutter-in{animation:shutIn .55s var(--spring)}
+@keyframes shutIn{from{transform:scale(.35);opacity:.2}to{transform:none;opacity:1}}
+#app.mode-anim #modes .mode.sel{animation:labelPop .55s var(--spring)}
+@keyframes labelPop{0%{transform:scale(.7);opacity:.3}100%{transform:none;opacity:1}}
+#app.mode-anim #btn-gallery,#app.mode-anim #btn-flip,#app.mode-anim #btn-burst,#app.mode-anim #btn-timer{animation:riseR .6s var(--ease) both}
+#app.mode-anim #modes .ind{transition:transform .5s var(--spring),width .5s var(--spring),height .5s var(--spring)}
+#modes .mode{transition:color .3s,transform .35s var(--spring),opacity .3s}
+#modes .mode:not(.sel){opacity:.7}
+#modes .mode.sel{opacity:1}
+
+/* ===== 全体のアニメーション(出現・ON切替・選択) ===== */
+@keyframes popIn{from{opacity:0;transform:translateY(8px) scale(.92)}to{opacity:1;transform:none}}
+@keyframes pop{0%{transform:scale(.82)}60%{transform:scale(1.07)}100%{transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#capmenu:not([hidden]),#zoompanel:not([hidden]),#cm-page:not([hidden]),#cm-int:not([hidden]),#v-info-panel:not([hidden]),
+#undo-chip:not([hidden]),#auto-chip:not([hidden]),#burst-chip:not([hidden]),#pending-chip:not([hidden]),#rec-chip:not([hidden]),#camerror:not([hidden]),
+#topbar .ib:not([hidden]),#topbar .chip:not([hidden]){animation:popIn .4s var(--spring) both}
+#gridlines:not([hidden]),#level:not([hidden]),#histo:not([hidden]),#zebra:not([hidden]),#peak:not([hidden]),#countdown:not([hidden]){animation:fadeIn .45s var(--ease) both}
+.ib.on,.chip.on,.fchip.sel,.seg button.sel,#zoompresets button.sel,.pbtn.fav .ms,.ptab.sel{animation:pop .45s var(--spring)}
+#zoombtn,#btn-flip .ms,#btn-timer .ms{transition:transform .45s var(--spring),background .25s,color .25s}
+#zoombtn:active{transform:scale(.9)}
+#btn-timer .sub{animation:popIn .3s var(--spring)}
+#toast.on{animation:popIn .38s var(--spring)}
+#settings .grp{animation:popIn .45s var(--ease) both}
+#settings .grp:nth-of-type(2){animation-delay:.04s}#settings .grp:nth-of-type(3){animation-delay:.08s}#settings .grp:nth-of-type(4){animation-delay:.12s}
+#gallery .g-head{animation:fadeIn .4s var(--ease) both}
