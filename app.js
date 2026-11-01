@@ -27,7 +27,9 @@ const DEF = {
   burstInterval: 0, burstMax: 60,
   grid: false, level: false, flash: true, mirror: false,
   timer: 0, burstMode: false, facing: 'environment', mode: 'photo',
-  prefix: 'IMG', enhance: false, enhMode: 'levels', steady: false, dim: 0, anim: true
+  prefix: 'IMG', enhance: false, enhMode: 'levels', steady: false, dim: 0, anim: true,
+  seq: false, seqN: 1, peak: false, gsort: 'desc',
+  aspect: 'full', auto: 'off', autoSens: 'mid', autoInt: 5, autoMax: 30, histo: false, zebra: false, dtap: false, autoScan: false, scanFilter: 'shadow'
 };
 let cfg = { ...DEF };
 try { Object.assign(cfg, JSON.parse(localStorage.getItem('silentcam-cfg') || '{}')); } catch (_) {}
@@ -193,7 +195,7 @@ async function _startCamera() {
   layout();
   updateResChip();
   lockScreen();
-  aeLocked = false; updateLockUI(); setupExposure(caps);
+  aeLocked = false; updateLockUI(); setupExposure(caps); if (window.buildAdjust) buildAdjust(caps);
   viewport.classList.remove('switching');
 }
 function stopStream() {
@@ -222,7 +224,7 @@ document.addEventListener('visibilitychange', () => {
 /* ---------- レイアウト(プレビュー枠のアスペクト) ---------- */
 function layout() {
   const vw = video.videoWidth || 4, vh = video.videoHeight || 3;
-  const ar = cfg.mode === 'square' ? 1 : vw / vh;
+  const ar = targetAspect(vw, vh) || vw / vh;
   const cw = stage.clientWidth - 20, ch = stage.clientHeight - 20;
   let w = cw, h = cw / ar;
   if (h > ch) { h = ch; w = ch * ar; }
@@ -337,8 +339,13 @@ $('#zoomslider').oninput = e => { setZoom(parseFloat(e.target.value)); keepZoomP
   viewport.addEventListener('wheel', e => { e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
 })();
 
+let lastTapT = 0;
 function tapFocus(e) {
-  panelShow(false); if (aeLocked) return;
+  panelShow(false);
+  const nowT = performance.now();
+  if (cfg.dtap && nowT - lastTapT < 320) { lastTapT = 0; triggerShutter(); return; }
+  lastTapT = nowT;
+  if (aeLocked) return;
   const r = viewport.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
   const f = $('#focus'); f.hidden = true; void f.offsetWidth; f.className = ''; f.style.left = x + 'px'; f.style.top = y + 'px'; f.hidden = false;
   try {
@@ -354,10 +361,19 @@ function tapFocus(e) {
    撮影(無音:canvas で原寸フレームを書き出し)
    ===================================================================== */
 // プレビュー表示範囲 → ソース映像上の切り出し矩形(整数ピクセル)
+const ASPECTS = { full: 0, '3:2': 1.5, '16:9': 16 / 9, '1:1': 1, a4: Math.SQRT2 };
+// 撮影範囲の縦横比(長辺/短辺を、端末の向き=映像の向きに合わせて適用)。null=カメラそのまま
+function targetAspect(vw, vh) {
+  if (cfg.mode === 'square') return 1;
+  if (isVideoMode()) return null;
+  const k = ASPECTS[cfg.aspect]; if (!k) return null;
+  return vw >= vh ? k : 1 / k;
+}
 function cropParams() {
   const vw = video.videoWidth, vh = video.videoHeight;
   let bx = 0, by = 0, bw = vw, bh = vh;
-  if (cfg.mode === 'square') { const s = Math.min(vw, vh); bw = bh = s; bx = Math.round((vw - s) / 2); by = Math.round((vh - s) / 2); }
+  const ta = targetAspect(vw, vh);
+  if (ta) { if (vw / vh > ta) { bw = Math.round(vh * ta); bh = vh; } else { bw = vw; bh = Math.round(vw / ta); } bx = Math.round((vw - bw) / 2); by = Math.round((vh - bh) / 2); }
   const d = digital();
   const mir = cfg.facing === 'user';
   const fxs = mir ? 1 - fx : fx;
@@ -367,11 +383,12 @@ function cropParams() {
   const fit = cfg.zoomOut === 'fit' && d > 1.0001;
   return { sx, sy, sw: cw, sh: ch, ow: fit ? bw : cw, oh: fit ? bh : ch, mirror: mir && cfg.mirror };
 }
-async function snapshot() {
+async function snapshot(noSeq) {
   const p = cropParams(); let bmp;
   try { bmp = await createImageBitmap(video); }
   catch (_) { const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight; c.getContext('2d').drawImage(video, 0, 0); bmp = c; }
-  return { bmp, p, ts: Date.now() };
+  const seq = cfg.seq && !noSeq ? cfg.seqN++ : 0; if (seq) saveCfg();
+  return { bmp, p, ts: Date.now(), seq };
 }
 let encCanvas = null, thumbCanvas = null;
 const toBlob = (c, type, q) => new Promise(r => c.toBlob(r, type, q));
@@ -403,11 +420,11 @@ function enhanceCanvas(c, gray) {
   }
   x.putImageData(img, 0, 0);
 }
-async function saveEnhanced(c, ts, ext) {
+async function saveEnhanced(c, ts, seq) {
   enhanceCanvas(c, cfg.enhMode === 'gray');
   const blob = await toBlob(c, 'image/jpeg', Math.max(cfg.quality, .95)); if (!blob) return;
   const thumb = await makeThumb(c, { sx: 0, sy: 0, sw: c.width, sh: c.height });
-  const meta = { type: 'photo', ts: ts + 1, fav: false, name: `${fileBase('IMG')}${stamp(ts)}_enh.jpg`, w: c.width, h: c.height, size: blob.size, mime: 'image/jpeg', thumb };
+  const meta = { type: 'photo', ts: ts + 1, fav: false, name: `${fileBase('IMG')}${seq ? pad(seq, 4) : stamp(ts)}_enh.jpg`, w: c.width, h: c.height, size: blob.size, mime: 'image/jpeg', thumb };
   return DB.add(meta, blob);
 }
 async function encodeAndSave(s) {
@@ -423,12 +440,22 @@ async function encodeAndSave(s) {
   const blob = await toBlob(c, type, cfg.quality);
   if (!blob) throw new Error('画像の書き出しに失敗しました');
   const thumb = await makeThumb(bmp, p);
-  const meta = { type: 'photo', ts, fav: false, name: `${fileBase('IMG')}${stamp(ts)}.${png ? 'png' : 'jpg'}`, w: p.ow, h: p.oh, size: blob.size, mime: type, thumb };
+  const meta = { type: 'photo', ts, fav: false, name: `${fileBase('IMG')}${s.seq ? pad(s.seq, 4) : stamp(ts)}.${png ? 'png' : 'jpg'}`, w: p.ow, h: p.oh, size: blob.size, mime: type, thumb };
   const saved = await DB.add(meta, blob);
-  if (cfg.enhance) { try { await saveEnhanced(c, ts); } catch (e) { toast('補正コピーの保存に失敗しました'); } }
+  if (cfg.enhance) { try { const en = await saveEnhanced(c, ts, s.seq); if (en) saved.pairId = en.id; } catch (e) { toast('補正コピーの保存に失敗しました'); } }
+  if (cfg.autoScan && window.autoScanCopy) { try { const sc = await autoScanCopy(c, s); if (sc) saved.pairId2 = sc.id; } catch (e) { toast('自動スキャン補正に失敗しました'); } }
   return saved;
 }
 // 保存キュー(1本ずつ処理しメモリ消費を抑える)
+let lastShot = null, undoT = 0;
+function showUndo(m) {
+  lastShot = m; const b = $('#undo-chip'); b.hidden = false; b.classList.remove('in'); void b.offsetWidth; b.classList.add('in');
+  clearTimeout(undoT); undoT = setTimeout(() => b.hidden = true, 5000);
+}
+$('#undo-chip').onclick = async () => {
+  if (!lastShot) return; const ids = [lastShot.id, lastShot.pairId, lastShot.pairId2].filter(Boolean); lastShot = null; $('#undo-chip').hidden = true;
+  try { await DB.del(ids); await refreshLastThumb(); toast('直前の撮影を削除しました', 1800); } catch (e) { toast('削除に失敗しました'); }
+};
 const encQ = []; let encBusy = false, pending = 0;
 function updatePending() { $('#pending-chip').hidden = pending === 0; $('#pending-n').textContent = pending; }
 function enqueue(s) { encQ.push(s); pending++; updatePending(); pump(); }
@@ -436,7 +463,7 @@ async function pump() {
   if (encBusy) return; encBusy = true;
   while (encQ.length) {
     const s = encQ.shift();
-    try { setThumb(await encodeAndSave(s)); }
+    try { const sv = await encodeAndSave(s); setThumb(sv); if (!burstRunning) showUndo(sv); }
     catch (e) { toast('保存に失敗しました: ' + (e && (e.name === 'QuotaExceededError' ? '容量不足' : e.message) || e)); }
     if (s.bmp.close) s.bmp.close();
     pending--; updatePending();
@@ -483,7 +510,7 @@ function cancelCountdown() { clearInterval(countdownTimer); countdownTimer = nul
 
 async function burstLoop() {
   if (burstRunning || !stream) return;
-  burstRunning = true; app.classList.add('bursting');
+  burstRunning = true; app.classList.add('bursting'); $('#undo-chip').hidden = true;
   const chip = $('#burst-chip'); chip.hidden = false; let n = 0; $('#burst-n').textContent = 0;
   while (burstRunning && n < cfg.burstMax && stream) {
     while (encQ.length >= 3 && burstRunning) await sleep(15);
@@ -496,6 +523,7 @@ async function burstLoop() {
 }
 
 function triggerShutter() {
+  if (!isVideoMode() && cfg.auto && cfg.auto !== 'off' && window.autoToggle) return autoToggle();
   if (isVideoMode()) return toggleRecord();
   if (cfg.burstMode) return burstRunning ? (burstRunning = false) : burstLoop();
   return shootWithTimer();
@@ -505,7 +533,7 @@ function triggerShutter() {
   const sh = $('#shutter'); let holdT = null, held = false, down = false;
   sh.addEventListener('pointerdown', e => {
     e.preventDefault(); down = true; held = false;
-    if (isVideoMode() || cfg.burstMode) return;
+    if (isVideoMode() || cfg.burstMode || (cfg.auto && cfg.auto !== 'off')) return;
     holdT = setTimeout(() => { held = true; burstLoop(); }, 380);   // 長押し=連写
   });
   const up = () => {
@@ -520,7 +548,8 @@ function triggerShutter() {
 $('#btn-snap').onclick = shootOnce;
 
 /* ---------- ビデオ録画 ---------- */
-let rec = null, recChunks = [], recStart = 0, recTimer = null, recThumb = null;
+let rec = null, recChunks = [], recStart = 0, recTimer = null, recThumb = null, recPausedAt = 0, recPausedTotal = 0;
+const recElapsed = () => (Date.now() - recStart - recPausedTotal - (recPausedAt ? Date.now() - recPausedAt : 0)) / 1000;
 function pickMime() {
   if (!window.MediaRecorder) return null;
   const c = ['video/mp4;codecs=avc1.640033', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
@@ -535,19 +564,19 @@ async function startRecord() {
   try { rec = new MediaRecorder(stream, { ...(mime ? { mimeType: mime } : {}), videoBitsPerSecond: bps }); }
   catch (e) { try { rec = new MediaRecorder(stream); } catch (e2) { return toast('録画を開始できません'); } }
   recChunks = [];
-  try { recThumb = await snapshot(); } catch (_) { recThumb = null; }
+  try { recThumb = await snapshot(true); } catch (_) { recThumb = null; }
   rec.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
   rec.onstop = finalizeRecord;
   rec.start(1000);
-  recording = true; recStart = Date.now();
+  recording = true; recStart = Date.now(); recPausedAt = 0; recPausedTotal = 0; $('#btn-pause').hidden = false; $('#undo-chip').hidden = true;
   app.classList.add('recording'); $('#btn-snap').hidden = false; $('#rec-chip').hidden = false;
   $('#rec-time').textContent = '0:00';
-  recTimer = setInterval(() => $('#rec-time').textContent = fmtDur((Date.now() - recStart) / 1000), 500);
+  recTimer = setInterval(() => $('#rec-time').textContent = fmtDur(recElapsed()), 500);
 }
 function stopRecord() { if (rec && rec.state !== 'inactive') rec.stop(); }
 async function finalizeRecord() {
   clearInterval(recTimer);
-  const dur = (Date.now() - recStart) / 1000;
+  const dur = recElapsed(); $('#btn-pause').hidden = true; recPausedAt = 0;
   recording = false; app.classList.remove('recording'); $('#btn-snap').hidden = true; $('#rec-chip').hidden = true;
   const type = (rec.mimeType || 'video/mp4').split(';')[0];
   const blob = new Blob(recChunks, { type }); recChunks = [];
@@ -575,7 +604,7 @@ function syncUI() {
   $('#timer-sub').textContent = cfg.timer ? cfg.timer : '';
   $('#btn-grid').classList.toggle('on', cfg.grid); $('#gridlines').hidden = !cfg.grid;
   $('#btn-level').classList.toggle('on', cfg.level); $('#level').hidden = !cfg.level;
-  $('#btn-enh').classList.toggle('on', cfg.enhance);
+  $('#btn-enh').classList.toggle('on', cfg.enhance); $('#btn-peak').classList.toggle('on', cfg.peak); if (window.syncPeak) syncPeak(); if (window.syncCap) syncCap();
   $('#btn-dim').classList.toggle('on', cfg.dim > 0); $('#dim').style.opacity = cfg.dim;
   document.documentElement.classList.toggle('noanim', !cfg.anim);
   moveInd();
@@ -600,6 +629,7 @@ let flipRot = 0;
 $('#btn-flip').onclick = async () => { if (recording) return; flipRot += 180; $('#btn-flip .ms').style.transform = `rotate(${flipRot}deg)`; cfg.facing = cfg.facing === 'user' ? 'environment' : 'user'; zoom = 1; fx = fy = .5; saveCfg(); await startCamera(); };
 $('#btn-grid').onclick = () => { cfg.grid = !cfg.grid; saveCfg(); syncUI(); };
 $('#btn-level').onclick = () => toggleLevel(!cfg.level);
+$('#btn-peak').onclick = () => { cfg.peak = !cfg.peak; saveCfg(); syncUI(); syncSettings(); };
 $('#btn-enh').onclick = () => { cfg.enhance = !cfg.enhance; saveCfg(); syncUI(); syncSettings(); toast(cfg.enhance ? '資料補正コピーを同時保存します(元画像はそのまま)' : '資料補正コピーをOFFにしました'); };
 $('#btn-dim').onclick = () => { cfg.dim = { 0: .35, .35: .6, .6: 0 }[cfg.dim] || 0; saveCfg(); syncUI(); syncSettings(); };
 $('#btn-retry').onclick = startCamera;
@@ -667,97 +697,7 @@ function renderLevel() {
   if (cfg.level) LV.raf = requestAnimationFrame(renderLevel);
 }
 
-/* =====================================================================
-   ギャラリー
-   ===================================================================== */
-const gallery = $('#gallery'), viewer = $('#viewer');
-let gItems = [], gFilter = 'all', gSel = new Set(), gSelecting = false, gUrls = [];
-const visibleItems = () => gItems.filter(i => gFilter === 'all' ? true : gFilter === 'fav' ? !!i.fav : i.type === gFilter);
-
-async function openGallery() { show(gallery); await refreshGallery(); }
-async function refreshGallery() {
-  gItems = (await DB.list()).sort((a, b) => b.ts - a.ts);
-  renderGallery();
-}
-function renderGallery() {
-  gUrls.forEach(u => URL.revokeObjectURL(u)); gUrls = [];
-  const grid = $('#g-grid'); grid.innerHTML = ''; grid.classList.toggle('selecting', gSelecting);
-  const list = visibleItems();
-  $('#g-empty').hidden = list.length > 0;
-  const frag = document.createDocumentFragment();
-  list.forEach((it, idx) => {
-    const c = document.createElement('button'); c.className = 'cell' + (gSel.has(it.id) ? ' sel' : ''); c.style.setProperty('--i', Math.min(idx, 24));
-    const img = new Image(); if (it.thumb && it.thumb.size) { const u = URL.createObjectURL(it.thumb); gUrls.push(u); img.src = u; } img.alt = ''; c.appendChild(img);
-    if (it.type === 'video') { const d = document.createElement('span'); d.className = 'dur'; d.innerHTML = '<span class="ms i-play-arrow"></span>' + fmtDur(it.dur || 0); c.appendChild(d); }
-    if (it.fav) { const f = document.createElement('span'); f.className = 'ms i-star fv'; c.appendChild(f); }
-    const ck = document.createElement('span'); ck.className = 'ck'; ck.innerHTML = '<span class="ms i-check"></span>'; c.appendChild(ck);
-    c.onclick = () => gSelecting ? toggleSel(it.id, c) : openViewer(idx);
-    frag.appendChild(c);
-  });
-  grid.appendChild(frag);
-  updateSelBar();
-}
-function toggleSel(id, cell) { gSel.has(id) ? gSel.delete(id) : gSel.add(id); cell.classList.toggle('sel', gSel.has(id)); updateSelBar(); }
-function updateSelBar() {
-  $('#g-actions').hidden = !gSelecting; $('#g-count').textContent = `${gSel.size}件選択`;
-  $('#g-select-t').textContent = gSelecting ? '完了' : '選択';
-  $('#g-total').textContent = `${visibleItems().length}件`;
-  $('#g-title').textContent = gSelecting ? '項目を選択' : 'ギャラリー';
-  ['#g-share', '#g-del', '#g-fav', '#g-zip'].forEach(s => $(s).disabled = gSel.size === 0);
-}
-$('#btn-gallery').onclick = openGallery;
-$('#g-close').onclick = () => { hide(gallery); gSelecting = false; gSel.clear(); gUrls.forEach(u => URL.revokeObjectURL(u)); gUrls = []; refreshLastThumb(); };
-$('#g-select').onclick = () => { gSelecting = !gSelecting; if (!gSelecting) gSel.clear(); renderGallery(); };
-$('#g-all').onclick = () => { visibleItems().forEach(i => gSel.add(i.id)); renderGallery(); };
-$$('#g-filters .fchip').forEach(b => b.onclick = () => { gFilter = b.dataset.f; $$('#g-filters .fchip').forEach(x => x.classList.toggle('sel', x === b)); renderGallery(); });
-$('#g-share').onclick = () => shareRecs(gItems.filter(i => gSel.has(i.id)));
-$('#g-fav').onclick = async () => {
-  const recs = gItems.filter(i => gSel.has(i.id)); if (!recs.length) return;
-  const to = !recs.every(r => r.fav);
-  for (const r of recs) { r.fav = to; await DB.put(r); }
-  renderGallery(); toast(to ? `${recs.length}件をお気に入りに追加` : `${recs.length}件のお気に入りを解除`);
-};
-$('#g-zip').onclick = async () => {
-  const recs = gItems.filter(i => gSel.has(i.id)); if (!recs.length) return;
-  if (recs.reduce((a, r) => a + r.size, 0) > 800e6) return toast('合計が大きすぎます。800MB以下ずつに分けてください', 4000);
-  try {
-    toast('ZIPを作成中…', 120000);
-    const blob = await buildZip(recs, (i, n) => toast(`ZIPを作成中… ${i}/${n}`, 120000));
-    toast('ZIPを作成しました');
-    await shareFiles([new File([blob], `silentcam_${stamp(Date.now()).slice(0, 15)}.zip`, { type: 'application/zip' })]);
-  } catch (e) { toast('ZIP作成に失敗しました: ' + (e.message || e), 4000); }
-};
-
-/* ---------- ZIP作成(無圧縮・ストア形式。JPEG/動画はもともと圧縮済みのため画質への影響なし) ---------- */
-const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
-function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
-async function buildZip(recs, onProgress) {
-  const enc = new TextEncoder(), parts = [], central = []; let offset = 0, csize = 0;
-  const d = new Date(), dt = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1), dd = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-  for (let i = 0; i < recs.length; i++) {
-    const r = recs[i], u8 = new Uint8Array(await (await DB.blob(r.id)).arrayBuffer()), name = enc.encode(r.name), crc = crc32(u8);
-    const lh = new DataView(new ArrayBuffer(30));
-    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, dt, true); lh.setUint16(12, dd, true);
-    lh.setUint32(14, crc, true); lh.setUint32(18, u8.length, true); lh.setUint32(22, u8.length, true); lh.setUint16(26, name.length, true);
-    parts.push(lh.buffer, name, u8);
-    const ch = new DataView(new ArrayBuffer(46));
-    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, dt, true); ch.setUint16(14, dd, true);
-    ch.setUint32(16, crc, true); ch.setUint32(20, u8.length, true); ch.setUint32(24, u8.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
-    central.push(ch.buffer, name); csize += 46 + name.length;
-    offset += 30 + name.length + u8.length;
-    if (onProgress) onProgress(i + 1, recs.length);
-    await sleep(0);
-  }
-  const end = new DataView(new ArrayBuffer(22));
-  end.setUint32(0, 0x06054b50, true); end.setUint16(8, recs.length, true); end.setUint16(10, recs.length, true); end.setUint32(12, csize, true); end.setUint32(16, offset, true);
-  return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
-}
-$('#g-del').onclick = async () => {
-  const ids = [...gSel]; if (!ids.length) return;
-  if (await dialog({ title: `${ids.length}件を削除`, text: 'この端末内の撮影データから完全に削除します。写真Appなどに書き出したコピーは消えません。', ok: '削除' })) {
-    await DB.del(ids); gSel.clear(); await refreshGallery(); toast('削除しました');
-  }
-};
+/* ---------- 最後に撮った写真のサムネ(ギャラリーは gallery.js) ---------- */
 async function refreshLastThumb() {
   try {
     const l = (await DB.list()).sort((a, b) => b.ts - a.ts)[0];
@@ -765,100 +705,6 @@ async function refreshLastThumb() {
     if (l && l.thumb && l.thumb.size) setThumb(l); else { img.removeAttribute('src'); $('#btn-gallery').classList.remove('has'); }
   } catch (_) {}
 }
-
-/* ---------- 共有 / ダウンロード ---------- */
-async function recToFile(r) { return new File([await DB.blob(r.id)], r.name, { type: r.mime }); }
-async function shareRecs(recs) {
-  if (!recs.length) return;
-  return shareFiles(await Promise.all(recs.map(recToFile)));
-}
-async function shareFiles(files) {
-  if (navigator.canShare && navigator.canShare({ files })) {
-    try { await navigator.share({ files }); return; }
-    catch (e) {
-      if (e.name === 'AbortError') return;
-      if (e.name === 'NotAllowedError') {   // ユーザー操作の有効期限切れ → もう一度タップしてもらう
-        await dialog({ title: '共有の準備ができました', text: `${files.length}件のファイルを書き出します。「共有を開く」から「画像を保存」または「“ファイル”に保存」を選んでください。`, ok: '共有を開く', cancel: 'キャンセル', onOk: () => navigator.share({ files }).catch(() => {}) });
-        return;
-      }
-    }
-  }
-  downloadFiles(files);
-}
-async function downloadFiles(files) {
-  for (const f of files) {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(f); a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 60000); await sleep(500);
-  }
-}
-
-/* ---------- ビューア(ピンチ拡大 / スワイプ / ダブルタップ) ---------- */
-let vList = [], vIdx = 0, vUrl = null; const V = { s: 1, x: 0, y: 0 };
-async function openViewer(idx) {
-  vList = visibleItems(); vIdx = clamp(idx, 0, vList.length - 1);
-  show(viewer); await loadViewer();
-}
-async function loadViewer(dir = 0) {
-  const it = vList[vIdx]; if (!it) { closeViewer(); return; }
-  $('#v-title').textContent = it.name; $('#v-infobox').classList.remove('show'); $('#v-fav').classList.toggle('on', !!it.fav);
-  $('#v-prev').hidden = vIdx === 0; $('#v-next').hidden = vIdx >= vList.length - 1;
-  if (vUrl) URL.revokeObjectURL(vUrl);
-  const blob = await DB.blob(it.id); vUrl = URL.createObjectURL(blob);
-  const st = $('#vstage'); st.innerHTML = ''; V.s = 1; V.x = V.y = 0; st.className = dir < 0 ? 'l' : dir > 0 ? 'r' : '';
-  let el;
-  if (it.type === 'video') { el = document.createElement('video'); el.controls = true; el.playsInline = true; el.src = vUrl; }
-  else { el = new Image(); el.src = vUrl; el.draggable = false; }
-  st.appendChild(el);
-}
-function closeViewer() { hide(viewer); $('#vstage').innerHTML = ''; if (vUrl) { URL.revokeObjectURL(vUrl); vUrl = null; } refreshGallery(); }
-const vStep = d => { const n = vIdx + d; if (n >= 0 && n < vList.length) { vIdx = n; loadViewer(d); } };
-$('#v-close').onclick = closeViewer; $('#v-prev').onclick = () => vStep(-1); $('#v-next').onclick = () => vStep(1);
-$('#v-share').onclick = () => shareRecs([vList[vIdx]]);
-$('#v-download').onclick = async () => downloadFiles([await recToFile(vList[vIdx])]);
-$('#v-del').onclick = async () => {
-  const it = vList[vIdx];
-  if (await dialog({ title: '削除', text: `${it.name} をこの端末内から削除します。`, ok: '削除' })) {
-    await DB.del([it.id]); vList.splice(vIdx, 1);
-    if (!vList.length) closeViewer(); else { vIdx = Math.min(vIdx, vList.length - 1); loadViewer(); }
-    toast('削除しました');
-  }
-};
-$('#v-info').onclick = () => {
-  const b = $('#v-infobox'), it = vList[vIdx];
-  b.innerHTML = `${it.name}<br>${it.w} × ${it.h} px(${(it.w * it.h / 1e6).toFixed(1)} MP)・${fmtBytes(it.size)}<br>${new Date(it.ts).toLocaleString('ja-JP')}${it.type === 'video' ? '<br>長さ ' + fmtDur(it.dur || 0) : ''}`;
-  b.classList.toggle('show');
-};
-$('#v-fav').onclick = async () => { const it = vList[vIdx]; it.fav = !it.fav; await DB.put(it); $('#v-fav').classList.toggle('on', it.fav); toast(it.fav ? 'お気に入りに追加しました' : 'お気に入りを解除しました', 1500); };
-document.addEventListener('keydown', e => { if (viewer.classList.contains('open')) { if (e.key === 'ArrowLeft') vStep(-1); if (e.key === 'ArrowRight') vStep(1); if (e.key === 'Escape') closeViewer(); } });
-(() => {
-  const st = $('#vstage'), ptrs = new Map(); let pinch = null, drag = null, lastTap = 0;
-  const img = () => st.querySelector('img');
-  const apply = () => { const i = img(); if (i) i.style.transform = `translate(${V.x}px,${V.y}px) scale(${V.s})`; };
-  const dist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
-  st.addEventListener('pointerdown', e => {
-    if (e.target.tagName === 'VIDEO') return;
-    st.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size === 2) { pinch = { d: dist(), s: V.s }; drag = null; }
-    else drag = { x: e.clientX, y: e.clientY, vx: V.x, vy: V.y, t: performance.now() };
-  });
-  st.addEventListener('pointermove', e => {
-    if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (ptrs.size === 2 && pinch) { V.s = clamp(pinch.s * dist() / pinch.d, 1, 12); apply(); }
-    else if (drag && V.s > 1.01) { V.x = drag.vx + e.clientX - drag.x; V.y = drag.vy + e.clientY - drag.y; apply(); }
-  });
-  const up = e => {
-    if (drag && ptrs.size === 1) {
-      const dx = e.clientX - drag.x, dy = e.clientY - drag.y, dt = performance.now() - drag.t;
-      if (V.s <= 1.01 && Math.abs(dx) > 70 && Math.abs(dy) < 70 && dt < 600) vStep(dx < 0 ? 1 : -1);
-      else if (Math.hypot(dx, dy) < 8 && dt < 300) {
-        if (performance.now() - lastTap < 320) { V.s = V.s > 1.01 ? 1 : 3; V.x = V.y = 0; apply(); lastTap = 0; } else lastTap = performance.now();
-      }
-    }
-    ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null; if (!ptrs.size) drag = null;
-    if (V.s <= 1.01) { V.s = 1; V.x = V.y = 0; apply(); }
-  };
-  st.addEventListener('pointerup', up); st.addEventListener('pointercancel', e => { ptrs.delete(e.pointerId); pinch = drag = null; });
-})();
 
 /* =====================================================================
    設定
@@ -887,7 +733,7 @@ $$('#settings .seg').forEach(seg => $$('button', seg).forEach(b => b.onclick = (
   applyKey(seg.dataset.key, v);
 }));
 $$('#settings input[type=checkbox]').forEach(el => el.onchange = () => applyKey(el.dataset.key, el.checked));
-$$('#settings input[type=text]').forEach(el => el.oninput = () => applyKey(el.dataset.key, el.value.trim() || 'IMG'));
+$$('#settings input[type=text]').forEach(el => el.oninput = () => applyKey(el.dataset.key, el.dataset.key === 'seqN' ? Math.max(1, parseInt(el.value, 10) || 1) : (el.value.trim() || 'IMG')));
 $$('#settings input[type=range]').forEach(el => el.oninput = () => applyKey(el.dataset.key, parseFloat(el.value)));
 $('#btn-settings').onclick = async () => { syncSettings(); show(settings); updateUsage(); };
 $('#s-close').onclick = () => hide(settings);
@@ -914,17 +760,54 @@ document.addEventListener('keydown', e => {
 });
 
 /* =====================================================================
+   更新の検出と適用
+   ・起動のたびに sw.js を確認(HTTPキャッシュを使わない)
+   ・新しい版が見つかったら、撮影中でない時に自動で読み直す(撮影を邪魔しない)
+   ===================================================================== */
+const APP_VERSION = 'v8';
+let pendingReload = false;
+function busyNow() { return recording || burstRunning || AS.on || !!countdownTimer || (editor && editor.classList.contains('open')); }
+function applyPendingReload() {
+  if (!pendingReload) return;
+  if (busyNow()) { setTimeout(applyPendingReload, 1500); return; }
+  location.reload();
+}
+function setupUpdates() {
+  $('#s-ver').textContent = APP_VERSION;
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    const check = () => reg.update().catch(() => {});
+    check();
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    setInterval(check, 30 * 60 * 1000);
+    if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing; if (!w) return;
+      w.addEventListener('statechange', () => {
+        if (w.state === 'installed' && navigator.serviceWorker.controller) w.postMessage({ type: 'SKIP_WAITING' });
+      });
+    });
+  }).catch(() => {});
+  let hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) { hadController = true; return; }     // 初回インストール時は再読み込み不要
+    pendingReload = true; toast('新しいバージョンに更新しています…', 1800);
+    setTimeout(applyPendingReload, 800);
+  });
+}
+
+/* =====================================================================
    起動
    ===================================================================== */
 (async function init() {
   syncSettings(); syncUI();
-  if (document.fonts && document.fonts.load) document.fonts.load('24px "Material Symbols Outlined"', '\ue429').then(f => { if (!f.length) toast('アイコンフォントを読み込めませんでした。ページを再読み込みしてください', 5000); }).catch(() => {});
+  if (document.fonts && document.fonts.load) Promise.all(['Material Symbols Outlined', 'SC Outlined'].map(f => document.fonts.load(`24px "${f}"`, '\ue429').catch(() => []))).then(r => { if (!r.some(a => a.length)) toast('アイコンフォントを読み込めませんでした。ページを再読み込みしてください', 5000); });
   try { await DB.open(); await refreshLastThumb(); } catch (e) { toast('保存領域を開けません(プライベートブラウズ中?)'); }
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (_) {}
   if (cfg.level || cfg.steady) {
     if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) { cfg.level = cfg.steady = false; saveCfg(); syncUI(); syncSettings(); }   // iPadOSはセンサー許可にユーザー操作が必要なので起動時はOFFに戻す
     else { LV.perm = true; syncMotion(); }
   }
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  setupUpdates();
   await startCamera();
 })();
